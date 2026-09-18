@@ -5,7 +5,6 @@ import (
 
 	"github.com/samber/do/v2"
 	"github.com/willie68/arcivio/internal/adapter/outbound/store/sqlite"
-	"github.com/willie68/arcivio/internal/domain/document"
 )
 
 // Provide registers the configured store as document.Store.
@@ -17,7 +16,7 @@ func Provide(inj do.Injector) error {
 		if err != nil {
 			return err
 		}
-		do.ProvideValue[document.Store](inj, st)
+		do.ProvideValue(inj, st)
 		return nil
 	default:
 		return fmt.Errorf("unknown storage type %q", cfg.Type)
