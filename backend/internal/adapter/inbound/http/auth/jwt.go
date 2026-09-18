@@ -14,8 +14,6 @@ import (
 type JWTAuthConfig struct {
 	Active      bool
 	Validate    bool
-	TenantClaim string
-	Strict      bool
 	IgnorePages []string
 }
 

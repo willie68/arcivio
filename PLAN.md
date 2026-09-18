@@ -9,29 +9,26 @@ Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeV
 Vorhanden:
 
 - Go-Modul `github.com/willie68/arcivio`, Servicename `arcivio`, Go 1.26
-- Clean/Hexagonal: `cmd/service`, `internal/bootstrap`, `internal/config`, `internal/infrastructure/{shttp,health,logging}`, `internal/adapter/inbound/http/{api,apiv1,auth}`
+- Repo-Layout: `backend/` (Go), `frontend/` (Vite/Vue), `bruno/`, `scripts/`
+- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth}`
 - YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
 - Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`), Schema bisher nur `schema_migrations`
 - Stub-Domain `internal/domain/document` (Port `Store.Ping`, Use Case `Status`)
-- Vue 3 + PrimeVue 4 + Vite in `web/`, Build nach `pkg/web/client`, SPA unter `/` eingebettet
-- Health `/livez` `/readyz`, Swagger `/swagger/` (leere API), `data/` gitignored
+- Vue 3 + PrimeVue 4 + Vite in `frontend/`; `scripts/build.cmd` baut zuerst das Frontend nach `backend/pkg/web/client`, danach das Binary
+- SPA unter HTTPS `/` und `/client/` eingebettet (`FileServer` mit Prefix-Strip); HTTP-Port nur Health/Metrics
+- Health `/livez` `/readyz`, Swagger `/swagger/` (leere API), `data/` und `frontend/node_modules/` gitignored
 - JWT-Middleware aus der Vorlage vorhanden, aber **nicht** aktiv (`auth.type` leer); Token-Validierung ist TODO
+- Bruno-Collection `arcivio` (Health HTTP/HTTPS); Postman-Collection entfernt
+- Workspace `Arcivio.code-workspace`; `scripts/build.cmd` schreibt `backend/bin/arcivio.exe`
 
-Noch **nicht** aufgeräumt (Reste der go-micro-Vorlage, keine Fachblockade):
+Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-- Tenant-API (`TenantHeaderKey`, `TenantID`, `tenantClaim` in YAML/JWT)
-- Bruno: Collection `go-micro`, Ordner `bruno/addresses/`, Vars `tenant`/`addressId`
-- Postman `api/go-micro.postman_collection.json`
-- Binary-/Docker-Namen `gomicro-service` (`scripts/`, `build/package/Dockerfile`, `build/ci/Makefile`)
-- Workspace-Datei `GoMicro.code-workspace`
-- `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert)
-
-Nächster fachlicher Schritt: **Phase 2 – Auth lokal + RBAC**. Die Vorlagenreste sollten dabei oder unmittelbar davor mitgezogen werden.
+Nächster fachlicher Schritt: **Phase 2 – Auth lokal + RBAC**.
 
 ## Offene Arbeitspakete
 
-- [x] go-micro (Clean/Hexagonal) nach Arcivio kopieren, Address-Demo entfernen, PrimeVue in `pkg/web/client`
-- [ ] Vorlagenreste: Tenant-Pflicht streichen, Bruno/Scripts/Docker auf Arcivio umbenennen
+- [x] go-micro (Clean/Hexagonal) nach Arcivio kopieren, Address-Demo entfernen, PrimeVue in `backend/pkg/web/client`
+- [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
 - [ ] Auth auf Template-JWT aufsetzen: lokale Nutzer (Argon2id), Claims/RBAC, Login stellt JWT aus; später OIDC Entra + Apple
 - [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen, Blob-Store, Versionen nur bei archival Änderungen, fluider Sidecar-Speicher
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
@@ -48,7 +45,7 @@ Nächster fachlicher Schritt: **Phase 2 – Auth lokal + RBAC**. Die Vorlagenres
 - **Archiv:** pragmatisch **GoBD-tauglich** (Unveränderbarkeit softwareseitig, Hash, Signatur, Audit, Aufbewahrung) – **kein** BSI TR-ESOR
 - **SSO:** lokale Konten plus **OIDC** für **Microsoft Entra ID** und **Sign in with Apple**; macOS-Kerberos/Open Directory später optional
 - **Go-Gerüst:** erledigt – Kopie der damaligen `go-micro`-Clean/Hexagonal-Struktur, Address-Demo entfernt
-- **Frontend:** Vue 3 + PrimeVue 4 (Vite), SPA in `pkg/web/client` eingebettet (Platzhalter-Seite)
+- **Frontend:** Vue 3 + PrimeVue 4 (Vite) in `frontend/`, SPA in `backend/pkg/web/client` eingebettet (Platzhalter-Seite)
 
 Keine Zertifizierung und keine Rechtsberatung: das System liefert technische Nachvollziehbarkeit; Verfahrensdokumentation bleibt organisatorisch.
 
@@ -145,12 +142,12 @@ flowchart TB
 - Infrastructure: `shttp`, `health`, `logging` (slog, GELF, VictoriaLogs), OTEL, Prometheus
 - Inbound: `adapter/inbound/http` (apiv1, JWT in `.../auth`, Swagger UI)
 - Outbound: Port im Domain-Paket (`document.Store`), Implementierung + Factory unter `adapter/outbound/store`, `Provide` registriert die Port-Implementierung
-- `internal/shared` (serror, httputils), `pkg/web` Embed, `api/` Swagger, `bruno/`, `scripts/`
-- Docker-Build der Vorlage (noch unter Namen `gomicro-service`)
+- `internal/shared` (serror, httputils), `backend/pkg/web` Embed, `backend/api/` Swagger, `bruno/`, `scripts/`, `frontend/`
+- Docker-Build: Binary `arcivio`, Image `mcs/arcivio` (`scripts/dockerbuild.cmd`)
 
 Entfernt bzw. ersetzt:
 
-- Demo-Bounded-Context **addresses** (`domain/addresses`, `adapter/outbound/address`, Address-Handler, `pkg/client`) – **Code weg**, Bruno/Postman noch nicht
+- Demo-Bounded-Context **addresses** (`domain/addresses`, `adapter/outbound/address`, Address-Handler, `pkg/client`) – **Code weg**; Bruno-Address-Requests und Postman ebenfalls entfernt
 - **Keine externe DB:** Factory `storage.type: sqlite` (`modernc.org/sqlite`); kein MySQL
 - Modulname **`github.com/willie68/arcivio`**, Servicename `arcivio`
 
@@ -363,7 +360,7 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 
 OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwort-Protokoll. TOTP später optional.
 
-**Ist:** JWT-Middleware und Config-Block existieren; `auth.type` ist in den Laufzeit-Configs leer, `JWT.Validate` ist nicht implementiert, Tenant-Claims sind noch Vorlage.
+**Ist:** JWT-Middleware und Config-Block existieren; `auth.type` ist in den Laufzeit-Configs leer, `JWT.Validate` ist nicht implementiert. Tenant-Header/-Claims sind entfernt.
 
 ## Auditlog
 
@@ -399,7 +396,7 @@ Fluide OCR-Updates zählen als Document-Update nur wenn `document.cud` an ist (k
 
 ## Frontend (PrimeVue)
 
-Selbsttragend: Vite-Build nach `pkg/web/client`; `shttp` liefert SPA + `/api/v1` wie im Template.
+Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cmd` vor dem Go-Build); HTTPS liefert SPA unter `/` und Assets unter `/client/`, plus `/api/v1`.
 
 **Ist:** Platzhalter-Seite „Arcivio“ mit Links zu Swagger/Health und einem PrimeVue-Button.
 
@@ -407,7 +404,7 @@ Selbsttragend: Vite-Build nach `pkg/web/client`; `shttp` liefert SPA + `/api/v1`
 
 ## Repository-Struktur (Clean / hexagonal)
 
-**Vorhanden:** `cmd/service`, `internal/bootstrap`, `internal/config`, `internal/infrastructure/{shttp,health,logging}`, `internal/adapter/inbound/http/{api,apiv1,auth}`, `internal/adapter/outbound/store/sqlite`, `internal/domain/document` (Stub), `internal/shared`, `pkg/web`, `api/`, `bruno/`, `configs/`, `scripts/`, `web/`.
+**Vorhanden:** `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth}`, `backend/internal/adapter/outbound/store/sqlite`, `backend/internal/domain/document` (Stub), `backend/internal/shared`, `backend/pkg/web`, `backend/api/`, `backend/configs/`, `bruno/`, `scripts/`, `frontend/`.
 
 **Domain (Use Cases + Ports) – geplant, außer document-Stub:**
 
@@ -435,7 +432,7 @@ Selbsttragend: Vite-Build nach `pkg/web/client`; `shttp` liefert SPA + `/api/v1`
 
 **Infrastructure:** `cryptofs` für At-Rest *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
 
-Frontend-Quellen `web/`, Output `pkg/web/client`. Laufzeit `data/` gitignored.
+Frontend-Quellen `frontend/`, Output `backend/pkg/web/client`. Laufzeit `data/` und `frontend/node_modules/` gitignored.
 
 ## Umsetzungsphasen
 
@@ -449,21 +446,20 @@ Erledigt:
 2. Address-Bounded-Context im Go-Code entfernt (`/api/v1/addresses` → 404)
 3. Config `storage.type: sqlite`, Pfad `./data/arcivio.db`, Tabelle `schema_migrations`
 4. `bootstrap.InitServices`: Health + shttp + SQLite-`Provide` + `domain/document`
-5. Vite + Vue 3 + PrimeVue in `web/`, Build nach `pkg/web/client`
-6. `data/` in `.gitignore`
+5. Vite + Vue 3 + PrimeVue in `frontend/`, Build nach `backend/pkg/web/client`
+6. `data/` und `frontend/node_modules/` in `.gitignore`
+7. Bruno-Collection `arcivio`, Address-Requests und Postman entfernt
+8. `scripts/build.cmd` baut Frontend, dann Swagger, dann `backend/bin/arcivio.exe`
+9. Workspace `Arcivio.code-workspace`
+10. Tenant-Header/-Claims und Address-Rollen aus Code/YAML entfernt; Docker/Makefile-Binary `arcivio`
 
-Akzeptanzkriterien erfüllt: Binary mit `-c configs/service_local.yaml`; `/livez`, `/readyz`, `/swagger/` und SPA vom Binary.
+Akzeptanzkriterien erfüllt: Binary mit `-c configs/service_local.yaml`; `/livez`, `/readyz`, `/swagger/` und SPA vom Binary (HTTPS `/` und `/client/`).
 
-Offene Aufräumarbeiten (kein neues Fach-Scope):
-
-- Tenant-Header/-Claim und Pflicht-Middleware entfernen
-- Bruno/Postman ohne Address-CRUD, Collection-Name Arcivio
-- Docker/Scripts/Makefile auf `arcivio-service` umbenennen
-- `GoMicro.code-workspace` ersetzen oder entfernen
+Aufräumarbeiten erledigt: Tenant-Header/-Claims, Bruno-Address-Vars, Docker/Makefile-Binary `arcivio`.
 
 ### Weitere Phasen
 
-2. **Auth lokal + RBAC** – interner IdP, Bootstrap `admin`/`admin` + Pflichtwechsel, Zufallspasswort bei Anlage durch andere; JWT-Signing-Key in `secret.yaml`; Tenant-Reste mitentfernen
+2. **Auth lokal + RBAC** – interner IdP, Bootstrap `admin`/`admin` + Pflichtwechsel, Zufallspasswort bei Anlage durch andere; JWT-Signing-Key in `secret.yaml`
 3. **Dokumente + Typen + Blob-Store**
 4. **Archiv-Volumes:** selbsttragende Envelopes, `DEL` im aktuellen Container, Restore, Siegel/Signatur
 5. **Auditlog:** Store `_audit` auto-anlegen, YAML-Schalter, Hash-Kette

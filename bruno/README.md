@@ -1,6 +1,6 @@
 # Bruno collection: arcivio
 
-Open this folder (`bruno/`) in Bruno. URLs, `tenant` and `addressId` are collection defaults in `collection.bru`. Environments only override ports. Select `local` for `configs/service_local.yaml`.
+Open this folder (`bruno/`) in Bruno. URLs are collection defaults in `collection.bru`. Environments only override ports. Select `local` for `configs/service_local.yaml`.
 
 | Environment | Config | HTTP | HTTPS |
 | --- | --- | --- | --- |
@@ -8,7 +8,7 @@ Open this folder (`bruno/`) in Bruno. URLs, `tenant` and `addressId` are collect
 | `testdata` | `testdata/service_local.yaml` | 9000 | 9443 |
 | `minimal` | `testdata/service_local_minimal.yaml` | 8000 | 8543 |
 
-With TLS enabled, the HTTP port only serves `/livez`, `/readyz`, `/` and `/metrics`. Address CRUD runs against `apiUrl` (HTTPS).
+With TLS enabled, the HTTP port only serves `/livez`, `/readyz`, `/` and `/metrics`. The SPA and REST API run against `apiUrl` (HTTPS).
 
 The service uses a generated or file-based certificate. Disable TLS verification in Bruno, or run:
 

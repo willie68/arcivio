@@ -8,44 +8,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
-	"github.com/willie68/arcivio/internal/adapter/inbound/http/api"
-	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	"github.com/willie68/arcivio/internal/shared/serror"
 )
 
 // val validator
 var val *validator.Validate
-
-// TenantClaim the claim used in the jwt claims, where the actual tenant is stored
-var TenantClaim string
-
-// Strict throwing an error if the tenant is not present in the token
-var Strict bool
-
-// TenantID gets the tenant-id of the given request
-func TenantID(r *http.Request) (string, error) {
-	tntID := chi.URLParam(r, api.URLParamTenantID)
-	if tntID != "" {
-		return strings.ToLower(tntID), nil
-	}
-	var id string
-	_, claims, _ := auth.FromContext(r.Context())
-	if claims != nil {
-		tenant, ok := claims[TenantClaim].(string)
-		if ok {
-			return strings.ToLower(tenant), nil
-		}
-		if Strict {
-			return "", serror.BadRequest(nil, "missing-tenant", "no tenant claim in jwt token")
-		}
-	}
-	id = r.Header.Get(api.TenantHeaderKey)
-	if id == "" {
-		msg := fmt.Sprintf("tenant header %s missing", api.TenantHeaderKey)
-		return "", serror.BadRequest(nil, "missing-tenant", msg)
-	}
-	return strings.ToLower(id), nil
-}
 
 // Decode decodes and validates an object
 func Decode(r *http.Request, v any) error {

@@ -5,12 +5,6 @@ import (
 	"github.com/willie68/arcivio/internal/infrastructure/logging"
 )
 
-// TenantHeaderKey in this header the right tenant should be inserted
-const TenantHeaderKey = "tenant"
-
-// URLParamTenantID url parameter for the tenant id
-const URLParamTenantID = "tntid"
-
 // MetricsEndpoint endpoint subpath  for metrics
 const MetricsEndpoint = "/metrics"
 

@@ -39,9 +39,10 @@ Forks und Weiterentwicklung sind ausdrücklich erwünscht. Issues und Pull Reque
 
 ## Lokal starten
 
-Voraussetzungen: Go 1.26+, für das Frontend-Rebuild Node.js (optional, die SPA liegt bereits in `pkg/web/client`).
+Voraussetzungen: Go 1.26+, für das Frontend-Rebuild Node.js (optional, die SPA liegt bereits in `backend/pkg/web/client`).
 
 ```text
+cd backend
 go test ./...
 go run ./cmd/service -c ./configs/service_local.yaml
 ```
