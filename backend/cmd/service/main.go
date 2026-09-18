@@ -71,10 +71,10 @@ func main() {
 		panic("can't load config file")
 	}
 
-	log.Init(config.Get().Logging, config.Servicename)
+	serviceConfig = config.Get()
+	initLogging()
 	log.Root.Info(fmt.Sprintf("using config file: %s: '%s'", configFile, config.YAML()))
 
-	serviceConfig = config.Get()
 	serviceConfig.Provide(inj)
 
 	if err := bootstrap.InitServices(inj, serviceConfig); err != nil {
@@ -122,7 +122,7 @@ func initLogging() {
 	if err != nil {
 		log.Root.Error(fmt.Sprintf("error on config dir: %v", err))
 	}
-	log.Init(serviceConfig.Logging, "gomicro")
+	log.Init(serviceConfig.Logging, config.Servicename)
 }
 
 // initOpenTelemetry initialize the opentelemetry component

@@ -2,9 +2,36 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
+## Aktueller Stand (2026-09-18)
+
+**Phase 1 (Gerüst) ist fachlich erfüllt.** Das Binary startet, Health/Swagger/SPA liegen, Address-Domain ist weg, SQLite ist verdrahtet. DMS-Fachlogik (Auth, Dokumente, Archiv, Suche, …) fehlt noch.
+
+Vorhanden:
+
+- Go-Modul `github.com/willie68/arcivio`, Servicename `arcivio`, Go 1.26
+- Clean/Hexagonal: `cmd/service`, `internal/bootstrap`, `internal/config`, `internal/infrastructure/{shttp,health,logging}`, `internal/adapter/inbound/http/{api,apiv1,auth}`
+- YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
+- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`), Schema bisher nur `schema_migrations`
+- Stub-Domain `internal/domain/document` (Port `Store.Ping`, Use Case `Status`)
+- Vue 3 + PrimeVue 4 + Vite in `web/`, Build nach `pkg/web/client`, SPA unter `/` eingebettet
+- Health `/livez` `/readyz`, Swagger `/swagger/` (leere API), `data/` gitignored
+- JWT-Middleware aus der Vorlage vorhanden, aber **nicht** aktiv (`auth.type` leer); Token-Validierung ist TODO
+
+Noch **nicht** aufgeräumt (Reste der go-micro-Vorlage, keine Fachblockade):
+
+- Tenant-API (`TenantHeaderKey`, `TenantID`, `tenantClaim` in YAML/JWT)
+- Bruno: Collection `go-micro`, Ordner `bruno/addresses/`, Vars `tenant`/`addressId`
+- Postman `api/go-micro.postman_collection.json`
+- Binary-/Docker-Namen `gomicro-service` (`scripts/`, `build/package/Dockerfile`, `build/ci/Makefile`)
+- Workspace-Datei `GoMicro.code-workspace`
+- `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert)
+
+Nächster fachlicher Schritt: **Phase 2 – Auth lokal + RBAC**. Die Vorlagenreste sollten dabei oder unmittelbar davor mitgezogen werden.
+
 ## Offene Arbeitspakete
 
-- [ ] go-micro (Clean/Hexagonal) nach Arcivio kopieren, Address-Demo entfernen, PrimeVue in pkg/web/client
+- [x] go-micro (Clean/Hexagonal) nach Arcivio kopieren, Address-Demo entfernen, PrimeVue in `pkg/web/client`
+- [ ] Vorlagenreste: Tenant-Pflicht streichen, Bruno/Scripts/Docker auf Arcivio umbenennen
 - [ ] Auth auf Template-JWT aufsetzen: lokale Nutzer (Argon2id), Claims/RBAC, Login stellt JWT aus; später OIDC Entra + Apple
 - [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen, Blob-Store, Versionen nur bei archival Änderungen, fluider Sidecar-Speicher
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
@@ -14,14 +41,14 @@ Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeV
 - [ ] Blobview: native Image/PDF; Outbound-Render wandelt EML/MSG/Office nach PDF als fluides File-Attribut; Frontend PDF-Anzeige
 - [ ] PrimeVue: Ablage, Typen, Suche (ein Suchfeld), Archiv-Status, Audit-Store (Admin), Benutzerverwaltung, Blobview
 
-## Annahmen (nach abgebrochenem Fragebogen)
+## Annahmen
 
-- **Projektname:** Arcivio (Go-Modul `arcivio`)
+- **Projektname:** Arcivio (Go-Modul `github.com/willie68/arcivio`)
 - **Pfad:** `H:\privat\git-sourcen\Arcivio`
 - **Archiv:** pragmatisch **GoBD-tauglich** (Unveränderbarkeit softwareseitig, Hash, Signatur, Audit, Aufbewahrung) – **kein** BSI TR-ESOR
 - **SSO:** lokale Konten plus **OIDC** für **Microsoft Entra ID** und **Sign in with Apple**; macOS-Kerberos/Open Directory später optional
-- **Go-Gerüst:** Kopie der **aktuellen** `H:\privat\git-sourcen\go-micro`-Clean/Hexagonal-Struktur
-- Setup-Defaults: Git, Vue 3 + PrimeVue (Vite), SPA in `pkg/web/client` wie im Template eingebettet
+- **Go-Gerüst:** erledigt – Kopie der damaligen `go-micro`-Clean/Hexagonal-Struktur, Address-Demo entfernt
+- **Frontend:** Vue 3 + PrimeVue 4 (Vite), SPA in `pkg/web/client` eingebettet (Platzhalter-Seite)
 
 Keine Zertifizierung und keine Rechtsberatung: das System liefert technische Nachvollziehbarkeit; Verfahrensdokumentation bleibt organisatorisch.
 
@@ -67,7 +94,7 @@ flowchart LR
 
 ## Tech-Stack
 
-**Go-Teil = aktuelle Vorlage `H:\privat\git-sourcen\go-micro`** – **Clean Architecture** mit hexagonalen Inbound-/Outbound-Adaptern (nicht das alte `internal/services`-Layout). Arcivio ist eine Kopie dieser Struktur.
+**Go-Teil = Clean Architecture** mit hexagonalen Inbound-/Outbound-Adaptern (nicht das alte `internal/services`-Layout). Basis war `go-micro`; Arcivio ist diese Struktur, umbenannt und ohne Address-Demo.
 
 Schichten (Abhängigkeiten nur nach innen; Domain kennt keine Adapter):
 
@@ -111,28 +138,28 @@ flowchart TB
   Boot --> SHttp
 ```
 
-Übernommen:
+Übernommen und im Repo:
 
 - Go 1.26, Chi, **samber/do** v2, Wiring in `internal/bootstrap` (`InitServices` + `Provide` je Paket)
 - YAML-Config (`internal/config`, `-c`, `${}`, `secretfile`)
 - Infrastructure: `shttp`, `health`, `logging` (slog, GELF, VictoriaLogs), OTEL, Prometheus
 - Inbound: `adapter/inbound/http` (apiv1, JWT in `.../auth`, Swagger UI)
-- Outbound-Muster: Port im Domain-Paket (`AddressStorage`), Implementierung + Factory unter `adapter/outbound/...`, `Provide` registriert die Port-Implementierung
-- `internal/shared` (serror, httputils), `pkg/web` Embed, `pkg/pmodel`, `api/` Swagger, `bruno/`, `scripts/`
-- Docker-Build des Templates
+- Outbound: Port im Domain-Paket (`document.Store`), Implementierung + Factory unter `adapter/outbound/store`, `Provide` registriert die Port-Implementierung
+- `internal/shared` (serror, httputils), `pkg/web` Embed, `api/` Swagger, `bruno/`, `scripts/`
+- Docker-Build der Vorlage (noch unter Namen `gomicro-service`)
 
-Nicht übernommen / umgebaut:
+Entfernt bzw. ersetzt:
 
-- Demo-Bounded-Context **addresses** komplett entfernen (`domain/addresses`, `adapter/outbound/address` inkl. MySQL, Address-Handler, `pkg/client` Address-API)
-- **Keine externe DB:** Outbound-Factory analog `address.Provide` mit Typ `sqlite` (`modernc.org/sqlite`); optional `memory` nur für Tests
+- Demo-Bounded-Context **addresses** (`domain/addresses`, `adapter/outbound/address`, Address-Handler, `pkg/client`) – **Code weg**, Bruno/Postman noch nicht
+- **Keine externe DB:** Factory `storage.type: sqlite` (`modernc.org/sqlite`); kein MySQL
 - Modulname **`github.com/willie68/arcivio`**, Servicename `arcivio`
 
-Ergänzungen (als Domain + Ports + Adapter, nicht als `internal/services`):
+Noch geplant (als Domain + Ports + Adapter, nicht als `internal/services`):
 
-- **Frontend:** Vue 3, PrimeVue 4, Vite, TypeScript; Build nach `pkg/web/client`
 - **Suche:** Bleve v2 (Text + Vector, Build-Tag `vectors`) als Outbound
 - **Krypto:** SHA-256, CMS/PKCS#7; At-Rest PQC in Infrastructure `cryptofs`
-- **Auth:** Domain Identity; JWT-Middleware bleibt Inbound wie im Template; Login/OIDC stellen dasselbe JWT aus
+- **Auth:** Domain Identity; JWT-Middleware bleibt Inbound; Login/OIDC stellen dasselbe JWT aus
+- **Frontend:** Kernflows in PrimeVue (Platzhalter existiert)
 
 ## Datenmodell (Kern)
 
@@ -336,6 +363,8 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 
 OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwort-Protokoll. TOTP später optional.
 
+**Ist:** JWT-Middleware und Config-Block existieren; `auth.type` ist in den Laufzeit-Configs leer, `JWT.Validate` ist nicht implementiert, Tenant-Claims sind noch Vorlage.
+
 ## Auditlog
 
 Alle fachlichen Vorgänge können in ein **Auditlog** geschrieben werden. Das Log liegt **nicht** in SQLite als führendem Speicher, sondern direkt in einem **Archiv-Store** (gleiche Container-/Envelope-Technik wie Dokumente, Record-Typ `AUDIT`).
@@ -372,15 +401,17 @@ Fluide OCR-Updates zählen als Document-Update nur wenn `document.cud` an ist (k
 
 Selbsttragend: Vite-Build nach `pkg/web/client`; `shttp` liefert SPA + `/api/v1` wie im Template.
 
-Oberflächen (MVP+): Login/SSO, Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview** (Image/PDF nativ, sonst Prerender-PDF), Typschablonen-Editor, **ein Suchfeld** (Volltext/Attribute/Range), Suche-KI-Toggle, Archiv-Volumes (Status, Verify, Siegel), **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL.
+**Ist:** Platzhalter-Seite „Arcivio“ mit Links zu Swagger/Health und einem PrimeVue-Button.
 
-## Repository-Struktur (Clean / hexagonal, wie go-micro)
+**Soll (MVP+):** Login/SSO, Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview** (Image/PDF nativ, sonst Prerender-PDF), Typschablonen-Editor, **ein Suchfeld** (Volltext/Attribute/Range), Suche-KI-Toggle, Archiv-Volumes (Status, Verify, Siegel), **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL.
 
-Aus der Vorlage belassen: `cmd/service`, `internal/bootstrap`, `internal/config`, `internal/infrastructure/{shttp,health,logging}`, `internal/adapter/inbound/http/{api,apiv1,auth}`, `internal/shared`, `pkg/web`, `pkg/pmodel`, `api/`, `bruno/`, `configs/`, `scripts/`.
+## Repository-Struktur (Clean / hexagonal)
 
-**Domain (Use Cases + Ports), statt `internal/services`:**
+**Vorhanden:** `cmd/service`, `internal/bootstrap`, `internal/config`, `internal/infrastructure/{shttp,health,logging}`, `internal/adapter/inbound/http/{api,apiv1,auth}`, `internal/adapter/outbound/store/sqlite`, `internal/domain/document` (Stub), `internal/shared`, `pkg/web`, `api/`, `bruno/`, `configs/`, `scripts/`, `web/`.
 
-- `internal/domain/document` – Typen, Versionen (archival Diff), Ports für Blob/Metadaten
+**Domain (Use Cases + Ports) – geplant, außer document-Stub:**
+
+- `internal/domain/document` – Typen, Versionen (archival Diff), Ports für Blob/Metadaten *(heute: nur Store-Ping)*
 - `internal/domain/fluid` – OCR/Volltext/Embeddings/Prerender-PDF
 - `internal/domain/archive` – selbsttragende Envelopes, `DEL`-Tombstones im offenen Volume, Restore, Siegel
 - `internal/domain/audit` – Schalter, Hash-Kette, Port zum Audit-Store
@@ -389,9 +420,9 @@ Aus der Vorlage belassen: `cmd/service`, `internal/bootstrap`, `internal/config`
 - `internal/domain/extract` – Extraktionsjobs (Port nach außen)
 - `internal/domain/render` – Prerender nach PDF
 
-**Outbound (Implementierungen der Ports), analog `adapter/outbound/address`:**
+**Outbound – vorhanden / geplant:**
 
-- `adapter/outbound/store/sqlite` – Factory `type: sqlite` (kein MySQL)
+- `adapter/outbound/store/sqlite` – Factory `type: sqlite` *(vorhanden)*
 - `adapter/outbound/blob` – Working-Blobs
 - `adapter/outbound/archive` – Volume-Dateien
 - `adapter/outbound/fluid` – derived files
@@ -400,36 +431,39 @@ Aus der Vorlage belassen: `cmd/service`, `internal/bootstrap`, `internal/config`
 - `adapter/outbound/render`
 - `adapter/outbound/identity/sqlite`
 
-**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf (wie `Address` im Template), kein direkter Store-Zugriff.
+**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. *(heute: Health, Metrics, Swagger, SPA – keine Fach-API)*
 
-**Infrastructure:** `cryptofs` für At-Rest; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
+**Infrastructure:** `cryptofs` für At-Rest *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
 
-Frontend-Quellen `web/`, Output `pkg/web/client/`. Laufzeit `data/` gitignored.
+Frontend-Quellen `web/`, Output `pkg/web/client`. Laufzeit `data/` gitignored.
 
 ## Umsetzungsphasen
 
-### Phase 1 – Gerüst (für den Start ausreichend definiert)
+### Phase 1 – Gerüst (erledigt)
 
-Ziel: lauffähiger Arcivio-Binary-Stub auf Basis des **aktuellen** go-micro, ohne Address-Demo, ohne DMS-Fachlogik.
+Ziel war: lauffähiger Arcivio-Binary-Stub ohne Address-Demo, ohne DMS-Fachlogik.
 
-**Vorgehen (Ordner existiert schon, `PLAN.md` behalten):**
+Erledigt:
 
-1. Inhalt von `H:\privat\git-sourcen\go-micro` nach `H:\privat\git-sourcen\Arcivio` kopieren (ohne `.git` der Vorlage, **`PLAN.md` nicht überschreiben**).
-2. Sofort Workspace-Root setzen.
-3. Git in Arcivio initialisieren, falls noch keins.
-4. Rename: `go.mod` → `github.com/willie68/arcivio`, `config.Servicename` → `arcivio`, Swagger-Titel, Scripts/Docker-Namen, alle Importpfade.
-5. Address-Bounded-Context entfernen: `domain/addresses`, `adapter/outbound/address`, Address-Handler in `apiv1`, `pkg/client` (Address-API), zugehörige Tests/Testdaten/`addressstorage` in YAML.
-6. **Kein Tenant-Header** (SOHO, keine Mandanten): Middleware/Pflicht aus go-micro streichen.
-7. Config: `addressstorage` ersetzen durch `storage.type: sqlite` und Pfad z. B. `${configdir}/data/arcivio.db` (noch leeres Schema / nur `schema_migrations`).
-8. `bootstrap.InitServices`: Health + shttp; optional leeres `domain/document` + Outbound SQLite `Provide` (Ping/Open).
-9. Frontend: Vite + Vue 3 + PrimeVue in `web/`, Build nach `pkg/web/client` (Platzhalter-Seite „Arcivio“). Template-`index.html` ersetzen.
-10. `data/` in `.gitignore`. Ports lokal wie Vorlage (HTTP/HTTPS aus `service_local.yaml`).
+1. go-micro nach Arcivio kopiert, Modul/Servicename/Swagger auf `arcivio`
+2. Address-Bounded-Context im Go-Code entfernt (`/api/v1/addresses` → 404)
+3. Config `storage.type: sqlite`, Pfad `./data/arcivio.db`, Tabelle `schema_migrations`
+4. `bootstrap.InitServices`: Health + shttp + SQLite-`Provide` + `domain/document`
+5. Vite + Vue 3 + PrimeVue in `web/`, Build nach `pkg/web/client`
+6. `data/` in `.gitignore`
 
-**Fertig, wenn:** `go test ./...` grün ohne Address-Pakete; Binary startet mit `-c configs/service_local.yaml`; `/livez`, `/readyz`, `/swagger/` erreichbar; `/api/v1/addresses` weg; SPA vom Binary ausgeliefert.
+Akzeptanzkriterien erfüllt: Binary mit `-c configs/service_local.yaml`; `/livez`, `/readyz`, `/swagger/` und SPA vom Binary.
 
-### Weitere Phasen (Kurz)
+Offene Aufräumarbeiten (kein neues Fach-Scope):
 
-2. **Auth lokal + RBAC** – interner IdP, Bootstrap `admin`/`admin` + Pflichtwechsel, Zufallspasswort bei Anlage durch andere; JWT-Signing-Key in `secret.yaml`
+- Tenant-Header/-Claim und Pflicht-Middleware entfernen
+- Bruno/Postman ohne Address-CRUD, Collection-Name Arcivio
+- Docker/Scripts/Makefile auf `arcivio-service` umbenennen
+- `GoMicro.code-workspace` ersetzen oder entfernen
+
+### Weitere Phasen
+
+2. **Auth lokal + RBAC** – interner IdP, Bootstrap `admin`/`admin` + Pflichtwechsel, Zufallspasswort bei Anlage durch andere; JWT-Signing-Key in `secret.yaml`; Tenant-Reste mitentfernen
 3. **Dokumente + Typen + Blob-Store**
 4. **Archiv-Volumes:** selbsttragende Envelopes, `DEL` im aktuellen Container, Restore, Siegel/Signatur
 5. **Auditlog:** Store `_audit` auto-anlegen, YAML-Schalter, Hash-Kette

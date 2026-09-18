@@ -1,5 +1,5 @@
 # secret file contains secrets like credentials, access key ... it has the same structure as this config and will be merged on start
-secretfile: ""
+secretfile: 
   
 # http service definition
 http:

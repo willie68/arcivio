@@ -32,6 +32,7 @@ logging:
     filename: "${logfile}"
     gelf-url: # ip adress of a gelf server 127.0.0.1
     gelf-port: 12201
+    victoria-logs-url: http://localhost:9428
 
 # config for opentelemetry
 opentelemetry:

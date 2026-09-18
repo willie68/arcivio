@@ -1,4 +1,4 @@
-# Bruno collection: go-micro
+# Bruno collection: arcivio
 
 Open this folder (`bruno/`) in Bruno. URLs, `tenant` and `addressId` are collection defaults in `collection.bru`. Environments only override ports. Select `local` for `configs/service_local.yaml`.
 

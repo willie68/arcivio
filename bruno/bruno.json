@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "go-micro",
+  "name": "arcivio",
   "type": "collection",
   "ignore": [
     "node_modules",

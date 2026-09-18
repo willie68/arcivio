@@ -1,1 +1,5 @@
-gomicro-service.exe -c ./configs/service_local.yaml
+@echo off
+cd backend
+
+bin/arcivio.exe -c ./configs/service_local.yaml
+cd ..

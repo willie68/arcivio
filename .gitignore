@@ -22,8 +22,8 @@ race.log
 
 # Dependency directories
 # vendor/
-web/node_modules/
-web/dist/
+frontend/node_modules/
+frontend/dist/
 
 # Go workspace file
 go.work
