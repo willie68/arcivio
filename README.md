@@ -1,157 +1,68 @@
-# go-micro
+# Arcivio
 
-go-micro microservice framework template
+**Work in progress.** Arcivio is an early-stage project. The public API, data formats and UI will change. Do not use it in production yet.
 
-This is a small template for creating a new microservice in go.
+**WIP – kein Produktionseinsatz.** Arcivio ist ein SOHO-Dokumentenmanagementsystem in aktiver Entwicklung. Schnittstellen, Speicherformate und Oberfläche sind noch nicht stabil. Es gibt **keine Gewähr** für Vollständigkeit, Datensicherheit oder revisionssichere Archivierung.
 
-Its not intended to be a fully featured microservice framework, just a small starting point with the things i normally need to build up a small, fast go microservice.
+## Ziel
 
-The layout follows Clean Architecture with hexagonal inbound/outbound adapters ([Do Digitals](https://dodigitals.org/blog/golang-microservices-folder-structure-do-digitals), [Medium](https://medium.com/@gitesky14/production-ready-go-folder-structure-88c1bd0f5a07)):
+Kleines, selbsttragendes DMS für Einzelbüros und kleine Teams:
 
-```
-cmd/service                     service entry point
-cmd/test                        small test helper
-internal/
-  adapter/inbound/http/         REST routes, JWT, health mount, Swagger UI
-  adapter/outbound/address/     persistence: in-memory (`internal`) or MySQL
-  domain/addresses              address use case and storage port
-  infrastructure/               HTTP/TLS server, health, slog logging
-  bootstrap/                    samber/do wiring
-  config/                       YAML load, envsubst, secret merge
-  shared/                       errors, HTTP helpers, TTL cache
-pkg/client                      Go client for the address API
-pkg/pmodel                      public models
-pkg/web                         embedded web UI
-api/                            generated OpenAPI/Swagger (`swag`)
-bruno/                          Bruno collection (health HTTP/HTTPS + CRUD)
-docs/api                        how to regenerate Swagger
-configs/                        example service and secret YAML
-scripts/                        build, start, test, race, lint, docker
-```
+- Ablage beliebiger Dateitypen
+- frei definierbare Dokumenttypen (Rechnung, Vertrag, Lohnabrechnung, …)
+- integriertes Append-Only-Archiv mit selbsttragenden Dokumenten
+- Volltext- und spätere KI-Suche
+- eigene Authentifizierung inkl. internem IdP, später SSO (Microsoft / Apple)
+- eine Binary: Go-Server und eingebettetes PrimeVue-Frontend
+- eingebettetes SQLite, keine externe Datenbank
 
-Dependency injection uses [samber/do](https://github.com/samber/do) v2. The HTTP stack is [chi](https://github.com/go-chi/chi).
+OCR, Volltext-Extraktion und Embeddings kommen über **externe** Dienste, nicht ins Kernprodukt.
 
-Features:
+Der technische Entwurf steht in [PLAN.md](PLAN.md). Das ist ein Architekturplan, keine fertige Spezifikation und **keine Rechtsberatung**. GoBD-Tauglichkeit ist ein Designziel, keine Zertifizierung.
 
-- structured logging with `log/slog` (stdout, optional rolling file)
-- GELF to Graylog (UDP or TCP)
-- VictoriaLogs JSON-line sender (async queue; a down collector does not block the process)
-- OpenTelemetry (OTLP HTTP traces)
-- optional JWT authentication
-- cached health checks, `/livez` and `/readyz` (GET and HEAD)
-- HTTPS for the API plus HTTP for probes/metrics when TLS is enabled
-- Prometheus metrics: https://prometheus.io/docs/guides/go-application/
-- Docker multi-stage image
-- Go 1.26
-- config `${}` substitution and optional secret file merge
+## Aktueller Stand (Phase 1)
 
-## Why using this and not a framework?
+Vorhanden:
 
-Because you gain more flexibility. See this little repo as a starting point for writing your own microservice framework for you or your company.
+- Clean-/Hexagonal-Gerüst (Go 1.26, Chi, samber/do)
+- Health (`/livez`, `/readyz`), optional Metrics, Swagger unter `/swagger/`
+- eingebettetes SQLite (`storage.type: sqlite`)
+- Platzhalter-SPA (Vue 3 + PrimeVue) unter `/`
 
-## Run locally
+Noch nicht vorhanden (geplant): Dokumentablage, Archiv-Volumes, Auditlog, Suche, Auth, Blob-Anzeige, optionale At-Rest-Verschlüsselung.
 
-```
-go build -o gomicro-service.exe ./cmd/service
-gomicro-service.exe -c ./configs/service_local.yaml
+## Mitmachen
+
+Forks und Weiterentwicklung sind ausdrücklich erwünscht. Issues und Pull Requests gerne auf [github.com/willie68/arcivio](https://github.com/willie68/arcivio).
+
+Änderungen an Forks liegen bei den jeweiligen Autorinnen und Autoren. Der ursprüngliche Autor übernimmt dafür keine Verantwortung.
+
+## Lokal starten
+
+Voraussetzungen: Go 1.26+, für das Frontend-Rebuild Node.js (optional, die SPA liegt bereits in `pkg/web/client`).
+
+```text
+go test ./...
+go run ./cmd/service -c ./configs/service_local.yaml
 ```
 
-Or `scripts\start.cmd` after a build. Default local ports are HTTP **9480** and HTTPS **9443**.
+Mit der lokalen Beispielconfig:
 
-With TLS enabled the HTTP port only serves health, metrics and profiling. Address CRUD lives on HTTPS under `/api/v1/addresses`. All address calls need the `tenant` header. JWT is commented out in the local configs (`auth.type: #jwt`).
+- HTTP (Health/Metrics): [http://127.0.0.1:9480/livez](http://127.0.0.1:9480/livez)
+- HTTPS (API/UI): [https://127.0.0.1:9443/](https://127.0.0.1:9443/) — Testzertifikat, Browser-Warnung ist erwartet
 
-The TLS certificate is generated at runtime unless `http.certificate` and `http.key` are set.
+Konfiguration über `-c` oder Standarddatei unter dem Benutzer-Configverzeichnis. Platzhalter `${name}` kommen aus der Umgebung. Laufzeitdaten liegen unter `data/` (nicht im Git).
 
-## Configuration
+Frontend neu bauen:
 
-The service loads its YAML automatically:
-
-- default: `<userhome>/<servicename>/service/service.yaml` (`${configdir}` is the per-user config folder)
-- command line: `-c <configfile>`
-
-`${name}` in the config is replaced from the process environment ([drone/envsubst](https://github.com/drone/envsubst)). Undefined variables become an empty string.
-
-### Secrets
-
-Credentials can live in a second file with the same structure (no `${}` macros). Point to it with `secretfile`. The main file is loaded and substituted first, then the secret file is merged on top. Typical source is a Kubernetes secret mount.
-
-```yaml
-secretfile: "./config/secret.yaml"
+```text
+cd web
+npm install
+npm run build
 ```
 
-### Logging
+## Lizenz und Haftung
 
-```yaml
-logging:
-  level: INFO
-  filename: logging.log          # optional lumberjack file
-  gelf-url:                      # Graylog host; empty disables GELF
-  gelf-port: 12201
-  gelf-protocol: udp             # udp (default) or tcp
-  victoria-logs-url:             # e.g. http://localhost:9428; empty disables it
-```
+[MIT License](LICENSE) — Copyright 2026 Wilfried Klaas.
 
-VictoriaLogs is written asynchronously. If the collector is down, records stay in a bounded in-memory queue and the logger does not hang.
-
-### Address storage
-
-```yaml
-addressstorage:
-  type: "internal"    # in-memory demo store
-  # type: "mysql"
-  # connection:
-  #   host: 127.0.0.1
-  #   database: gomicro
-  #   table: addresses
-  #   username: ...
-  #   password: ...
-```
-
-See `configs/service_mysql.yaml` for a MySQL example.
-
-### Prometheus
-
-```yaml
-metrics:
-  enable: true
-```
-
-Add a counter where you need it:
-
-```go
-var (
-  postAdrCounter = promauto.NewCounter(prometheus.CounterOpts{
-    Name: "gomicro_post_adr_total",
-    Help: "The total number of address requests",
-  })
-)
-
-postAdrCounter.Inc()
-```
-
-More examples: https://prometheus.io/docs/guides/go-application/
-
-## API
-
-- OpenAPI contract: `api/swagger.yaml` (also served at `/swagger/` when the service runs)
-- Regenerate with `scripts\build.cmd` or the `swag init` command in [docs/api/README.md](docs/api/README.md)
-- Bruno collection: open `bruno/` in Bruno, select environment `local`. Collection variables live in `bruno/collection.bru`; environments only override ports. Use `--insecure` (or disable TLS verify) for the generated certificate. Details: [bruno/README.md](bruno/README.md)
-- Go client: `pkg/client`
-
-## Tests and scripts
-
-| Script | Purpose |
-| --- | --- |
-| `scripts\unittests.cmd` | `go test -coverprofile=cover.out -coverpkg=./... ./...` then `go tool cover -func` |
-| `scripts\racetest.cmd` | `set CC=clang` then `go test --race ./...` (required on Windows) |
-| `scripts\lint.cmd` | `revive` with `revive.toml` |
-| `scripts\build.cmd` | Swagger + `go build` |
-| `scripts\dockerbuild.cmd` | image `mcs/gomicro-service:V1`, ports 9080/9543 |
-
-## Docker
-
-```
-docker build -f ./build/package/Dockerfile ./ -t mcs/gomicro-service:V1
-```
-
-The image exposes 8080 (HTTP health) and 8443 (HTTPS API). The container health check hits `http://localhost:8080/livez`.
+Die Software wird **unverändert („as is“)** bereitgestellt, ohne Gewährleistung. Soweit gesetzlich zulässig, haftet der Autor nicht für Schäden aus Nutzung, Nichtnutzung oder Weiterentwicklung — auch nicht beim eigenen Einsatz. Zwingende gesetzliche Haftung bleibt unberührt.
