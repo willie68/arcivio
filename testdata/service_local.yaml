@@ -1,0 +1,46 @@
+secretfile: ""
+http:
+  servicename: arcivio
+  # port of the http server
+  port: 9000
+  # port of the https server for payload only
+  sslport: 9443
+  # this is the servicURL from outside
+  serviceURL: https://127.0.0.1:9443
+  # other dns names (used for certificate)
+  dnss: 
+    - host.docker.internal
+    - localhost
+  # other ips (used for certificate)
+  ips: 
+    - 127.0.0.1
+#configure the healthcheck system
+healthcheck:
+  # period in seconds to start the healtcheck
+  period: 60
+  startdelay: 3
+# enable/disable metrics 
+metrics:
+  enable: true
+logging:
+  level: debug
+  filename: "${logfile}"
+profiling:
+  enable: false
+auth:
+  type: #jwt
+  properties: 
+    validate: false
+    strict: true
+    tenantClaim: Tenant
+    roleClaim: 
+    rolemapping: 
+        object-reader: Reader
+        object-creator: Creator
+        object-admin: ObAdmin
+        tenant-admin: TnAdmin
+        admin: Admin
+
+storage:
+  type: sqlite
+  path: ./data/arcivio.db
