@@ -1,7 +1,8 @@
 basePath: /api/v1
 info:
-  title: Arcivio API
+  contact: {}
   description: SOHO Dokumentenmanagement
+  title: Arcivio API
   version: "1.0"
 paths: {}
 swagger: "2.0"
