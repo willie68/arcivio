@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   base: "/client/",
   build: {
-    outDir: resolve(__dirname, "../pkg/web/client"),
+    outDir: resolve(__dirname, "../backend/pkg/web/client"),
     emptyOutDir: true,
   },
 });

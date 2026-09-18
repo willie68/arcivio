@@ -5,6 +5,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -100,5 +102,21 @@ func TestFileServer(t *testing.T) {
 	assert.Panics(t, func() {
 		FileServer(r, "/{id}", http.Dir("."))
 	})
-	FileServer(r, "/static", http.Dir("."))
+
+	dir := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "index.html"), []byte("spa-index"), 0o644))
+	assert.NoError(t, os.Mkdir(filepath.Join(dir, "assets"), 0o755))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "assets", "app.js"), []byte("spa-js"), 0o644))
+
+	FileServer(r, "/client", http.Dir(dir))
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/client/", nil))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "spa-index", rec.Body.String())
+
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/client/assets/app.js", nil))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "spa-js", rec.Body.String())
 }

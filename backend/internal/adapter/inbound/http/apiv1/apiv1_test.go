@@ -46,6 +46,13 @@ func TestAPIRoutesAndHealthRoutes(t *testing.T) {
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	router.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Arcivio")
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/client/", nil)
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Arcivio")
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/addresses/", nil)
