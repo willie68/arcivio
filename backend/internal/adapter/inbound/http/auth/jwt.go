@@ -10,11 +10,18 @@ import (
 	"github.com/willie68/arcivio/internal/config"
 )
 
+// TokenVerifier validates a signed access token and returns its claims.
+type TokenVerifier interface {
+	VerifyAccessToken(token string) (map[string]any, error)
+}
+
 // JWTAuthConfig authentication/Authorisation configuration for JWT authentification
 type JWTAuthConfig struct {
 	Active      bool
 	Validate    bool
 	IgnorePages []string
+	Issuer      string
+	Audience    string
 }
 
 // JWT struct for the decoded jwt token
@@ -28,7 +35,8 @@ type JWT struct {
 
 // JWTAuth the jwt authentication struct
 type JWTAuth struct {
-	Config JWTAuthConfig
+	Config   JWTAuthConfig
+	Verifier TokenVerifier
 }
 
 // JWTConfig for the service
@@ -47,13 +55,19 @@ func InitJWT(cnfg JWTAuthConfig) JWTAuth {
 // ParseJWTConfig building up the dynamical configuration for this
 func ParseJWTConfig(cfg config.Authentication) (JWTAuthConfig, error) {
 	jwtcfg := JWTAuthConfig{
-		Active: true,
+		Active:      true,
 		IgnorePages: make([]string, 0),
 	}
 	var err error
 	jwtcfg.Validate, err = config.GetConfigValueAsBool(cfg.Properties, "validate")
 	if err != nil {
 		return jwtcfg, err
+	}
+	if iss, e := config.GetConfigValueAsString(cfg.Properties, "issuer"); e == nil {
+		jwtcfg.Issuer = iss
+	}
+	if aud, e := config.GetConfigValueAsString(cfg.Properties, "audience"); e == nil {
+		jwtcfg.Audience = aud
 	}
 	return jwtcfg, nil
 }
@@ -72,6 +86,7 @@ func DecodeJWT(token string) (JWT, error) {
 	if len(token) > 7 && strings.ToUpper(token[0:6]) == "BEARER" {
 		token = token[7:]
 	}
+	jt.Token = token
 
 	// decode JWT token without verifying the signature
 	jwtParts := strings.Split(token, ".")
@@ -114,8 +129,20 @@ func jwtDecodePart(payload string) (map[string]any, error) {
 	return result, nil
 }
 
-// Validate validation of the token is not implemented
-func (j *JWT) Validate(_ *JWTAuth) error {
-	//TODO here should be the implementation of the validation of the token
+// Validate checks the token signature and claims when validation is enabled.
+func (j *JWT) Validate(ja *JWTAuth) error {
+	if ja == nil || !ja.Config.Validate {
+		return nil
+	}
+	if ja.Verifier == nil {
+		return errors.New("jwt verifier not configured")
+	}
+	claims, err := ja.Verifier.VerifyAccessToken(j.Token)
+	if err != nil {
+		j.IsValid = false
+		return err
+	}
+	j.Payload = claims
+	j.IsValid = true
 	return nil
 }

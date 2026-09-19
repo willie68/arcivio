@@ -8,7 +8,7 @@ http:
   # port of the https server for payload only
   sslport: 9443
   # this is the servicURL from outside
-  serviceURL: https://localhost:8443
+  serviceURL: https://127.0.0.1:9443
   # other dns names (used for certificate)
   dnss: 
     - host.docker.internal
@@ -45,6 +45,17 @@ metrics:
 # active the profiling
 profiling:
   enable: true
+
+# internal OIDC IdP + JWT for /api/v1
+auth:
+  type: jwt
+  properties:
+    validate: true
+    clientID: arcivio-web
+    audience: arcivio-web
+    redirectURIs:
+      - http://localhost:5173/callback
+      - http://127.0.0.1:5173/callback
 
 storage:
   type: sqlite

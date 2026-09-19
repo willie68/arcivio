@@ -1,8 +1,37 @@
 basePath: /api/v1
+definitions:
+  apiv1.MeResponse:
+    properties:
+      id:
+        type: string
+      mustChangePassword:
+        type: boolean
+      roles:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    type: object
 info:
   contact: {}
   description: SOHO Dokumentenmanagement
   title: Arcivio API
   version: "1.0"
-paths: {}
+paths:
+  /me:
+    get:
+      description: Returns the authenticated local user from the access token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiv1.MeResponse'
+        "401":
+          description: Unauthorized
+      summary: Current user
+      tags:
+      - identity
 swagger: "2.0"

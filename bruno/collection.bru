@@ -26,6 +26,7 @@ docs {
   With TLS enabled the HTTP port only serves health, metrics and profiling.
   The REST API (and the same health routes again) is on the HTTPS port.
   The SPA is on HTTPS `/` and `/client/`.
+  The internal OIDC IdP is on HTTPS `/auth` (authorization code + PKCE).
 
   Self-signed certificates: disable TLS verification in Bruno preferences,
   or run `bru run --insecure --env local`.

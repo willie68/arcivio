@@ -16,4 +16,6 @@ The service uses a generated or file-based certificate. Disable TLS verification
 bru run --insecure --env local
 ```
 
-JWT is off in the default local config. If you enable `auth.type: jwt`, set a Bearer token on the collection.
+JWT is enabled in the default local config (`auth.type: jwt`). Unauthenticated
+calls to `/api/v1/*` return 401. Log in via the SPA (OIDC authorization code + PKCE)
+or obtain a token from `POST /auth/token`.

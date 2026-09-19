@@ -2,9 +2,12 @@ package bootstrap
 
 import (
 	"github.com/samber/do/v2"
+	idsqlite "github.com/willie68/arcivio/internal/adapter/outbound/identity/sqlite"
 	"github.com/willie68/arcivio/internal/adapter/outbound/store"
 	"github.com/willie68/arcivio/internal/config"
 	"github.com/willie68/arcivio/internal/domain/document"
+	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/idp"
 	"github.com/willie68/arcivio/internal/infrastructure/health"
 	"github.com/willie68/arcivio/internal/infrastructure/logging"
 	"github.com/willie68/arcivio/internal/infrastructure/shttp"
@@ -28,6 +31,16 @@ func InitServices(inj do.Injector, cfg config.Config) error {
 	if err := store.Provide(inj); err != nil {
 		return err
 	}
+	if err := idsqlite.Provide(inj); err != nil {
+		return err
+	}
+	if err := identity.Provide(inj); err != nil {
+		return err
+	}
+	if err := idp.Provide(inj); err != nil {
+		return err
+	}
+
 	if err := document.Provide(inj); err != nil {
 		return err
 	}

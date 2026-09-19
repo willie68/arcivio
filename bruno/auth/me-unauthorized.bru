@@ -1,0 +1,21 @@
+meta {
+  name: GET me unauthorized
+  type: http
+  seq: 3
+  tags: [
+    auth
+    https
+  ]
+}
+
+get {
+  url: {{httpsUrl}}/api/v1/me
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("me without token is 401", function () {
+    expect(res.status).to.equal(401);
+  });
+}

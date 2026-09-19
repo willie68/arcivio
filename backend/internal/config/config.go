@@ -143,7 +143,7 @@ func (c *Config) Provide(inj do.Injector) {
 
 var _ health.ServiceName = &Config{}
 
-func (c *Config) ServiceName() string {
+func (c Config) ServiceName() string {
 	return Servicename
 }
 

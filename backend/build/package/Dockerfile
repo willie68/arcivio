@@ -10,15 +10,15 @@ RUN set -eux; \
         git \
         musl-dev
 
+## Task: build rest api definition
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
 ## Task: copy source files
 COPY . /src
 WORKDIR /src
 
 ## Task: fetch project deps
 RUN go mod download ; go mod tidy
-
-## Task: build rest api definition
-RUN go install github.com/swaggo/swag/cmd/swag@latest
 
 ## Task: build project
 ENV GOOS="linux"

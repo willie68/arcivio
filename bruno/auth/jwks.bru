@@ -1,0 +1,26 @@
+meta {
+  name: GET jwks
+  type: http
+  seq: 2
+  tags: [
+    auth
+    https
+  ]
+}
+
+get {
+  url: {{httpsUrl}}/auth/jwks
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("jwks is 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("has rsa key", function () {
+    expect(res.body.keys[0].kty).to.equal("RSA");
+    expect(res.body.keys[0].alg).to.equal("RS256");
+  });
+}

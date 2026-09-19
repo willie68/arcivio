@@ -16,7 +16,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
+	idphandler "github.com/willie68/arcivio/internal/adapter/inbound/http/idp"
 	"github.com/willie68/arcivio/internal/config"
+	"github.com/willie68/arcivio/internal/domain/idp"
 	"github.com/willie68/arcivio/internal/infrastructure/health"
 	"github.com/willie68/arcivio/internal/infrastructure/logging"
 	"github.com/willie68/arcivio/internal/shared/utils/httputils"
@@ -43,14 +45,6 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 	router := chi.NewRouter()
 	setDefaultHandler(router, cfn)
 
-	// jwt is activated, register the Authenticator and Validator
-	if strings.EqualFold(cfn.Auth.Type, "jwt") {
-		err := setJWTHandler(router, cfn)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// building the routes
 	router.Route("/", func(r chi.Router) {
 		r.Mount(health.NewHealthHandler(inj).Routes())
@@ -62,11 +56,35 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 	router.Get("/", serveSPAIndex)
+	router.Get("/login", serveSPAIndex)
+	router.Get("/callback", serveSPAIndex)
+	router.Get("/change-password", serveSPAIndex)
 	clientFS, err := fs.Sub(web.WebClientAssets, "client")
 	if err != nil {
 		return nil, err
 	}
 	httputils.FileServer(router, "/client", http.FS(clientFS))
+
+	idpProv, err := do.Invoke[*idp.Provider](inj)
+	if err != nil {
+		return nil, fmt.Errorf("internal idp is required: %w", err)
+	}
+	router.Mount(idphandler.New(idpProv).Routes())
+
+	var jwtErr error
+	router.Route(BaseURL, func(r chi.Router) {
+		if strings.EqualFold(cfn.Auth.Type, "jwt") {
+			if err := setJWTHandler(r, inj, cfn); err != nil {
+				jwtErr = err
+				return
+			}
+		}
+		r.Get("/me", newMeHandler(inj).GetMe)
+	})
+	if jwtErr != nil {
+		return nil, jwtErr
+	}
+
 	logger.Info(fmt.Sprintf("%s api routes", config.Servicename))
 
 	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
@@ -80,7 +98,7 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 	return router, nil
 }
 
-func setJWTHandler(router *chi.Mux, cfn config.Config) error {
+func setJWTHandler(router chi.Router, inj do.Injector, cfn config.Config) error {
 	jwtConfig, err := auth.ParseJWTConfig(cfn.Auth)
 	if err != nil {
 		return err
@@ -88,6 +106,13 @@ func setJWTHandler(router *chi.Mux, cfn config.Config) error {
 	logger.Info(fmt.Sprintf("jwt config: %v", jwtConfig))
 	jwtAuth := auth.JWTAuth{
 		Config: jwtConfig,
+	}
+	if jwtConfig.Validate {
+		prov, err := do.Invoke[*idp.Provider](inj)
+		if err != nil {
+			return fmt.Errorf("jwt validate requires internal idp: %w", err)
+		}
+		jwtAuth.Verifier = prov
 	}
 	router.Use(
 		auth.Verifier(&jwtAuth),
