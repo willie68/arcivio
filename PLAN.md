@@ -2,34 +2,39 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-18)
+## Aktueller Stand (2026-09-19)
 
-**Phase 1 (Gerüst) ist fachlich erfüllt.** Das Binary startet, Health/Swagger/SPA liegen, Address-Domain ist weg, SQLite ist verdrahtet. DMS-Fachlogik (Auth, Dokumente, Archiv, Suche, …) fehlt noch.
+**Phase 1 (Gerüst) ist fachlich erfüllt.** **Phase 2 Auth lokal (interner IdP) ist fachlich erfüllt**; Feingranular-RBAC an der API fehlt noch.
 
 Vorhanden:
 
 - Go-Modul `github.com/willie68/arcivio`, Servicename `arcivio`, Go 1.26
 - Repo-Layout: `backend/` (Go), `frontend/` (Vite/Vue), `bruno/`, `scripts/`
-- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth}`
+- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp}`
 - YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
-- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`), Schema bisher nur `schema_migrations`
+- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`)
+- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser mit Einmalpasswort)
+- Domain `idp`: interner OIDC-IdP (Authorization Code + PKCE S256, RS256 JWT, JWKS)
+- HTTP `/auth` (Discovery, JWKS, authorize, login, change-password, token, userinfo, logout); JWT nur auf `/api/v1`
 - Stub-Domain `internal/domain/document` (Port `Store.Ping`, Use Case `Status`)
 - Vue 3 + PrimeVue 4 + Vite in `frontend/`; `scripts/build.cmd` baut zuerst das Frontend nach `backend/pkg/web/client`, danach das Binary
-- SPA unter HTTPS `/` und `/client/` eingebettet (`FileServer` mit Prefix-Strip); HTTP-Port nur Health/Metrics
-- Health `/livez` `/readyz`, Swagger `/swagger/` (leere API), `data/` und `frontend/node_modules/` gitignored
-- JWT-Middleware aus der Vorlage vorhanden, aber **nicht** aktiv (`auth.type` leer); Token-Validierung ist TODO
-- Bruno-Collection `arcivio` (Health HTTP/HTTPS); Postman-Collection entfernt
+- SPA unter HTTPS `/` und `/client/` eingebettet; Login-Dialog, Pflichtwechsel, OIDC-Callback, `GET /api/v1/me`
+- Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth` und `/api` zum Go-HTTPS; Loopback-Redirects für `/callback`
+- Health `/livez` `/readyz`, Swagger `/swagger/` (`/me`), `data/` und `frontend/node_modules/` gitignored
+- JWT aktiv (`auth.type: jwt`); Signaturprüfung über den IdP-Verifier
+- Bruno-Collection `arcivio` (Health + Auth Discovery/JWKS/`/me` unauth)
 - Workspace `Arcivio.code-workspace`; `scripts/build.cmd` schreibt `backend/bin/arcivio.exe`
 
 Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-Nächster fachlicher Schritt: **Phase 2 – Auth lokal + RBAC**.
+Nächster fachlicher Schritt: **Phase 3 – Dokumente + Typen + Blob-Store**. RBAC-Durchsetzung kommt mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 9.
 
 ## Offene Arbeitspakete
 
 - [x] go-micro (Clean/Hexagonal) nach Arcivio kopieren, Address-Demo entfernen, PrimeVue in `backend/pkg/web/client`
 - [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
-- [ ] Auth auf Template-JWT aufsetzen: lokale Nutzer (Argon2id), Claims/RBAC, Login stellt JWT aus; später OIDC Entra + Apple
+- [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
+- [ ] RBAC an der API durchsetzen (Rollen am User/JWT vorhanden; Permissions `document.create` etc. fehlen)
 - [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen, Blob-Store, Versionen nur bei archival Änderungen, fluider Sidecar-Speicher
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
 - [ ] Auditlog: bereichsweise YAML-Schalter, AUDIT-Envelopes im Auto-Store `_audit`, Admin-Einsicht, Hash-Kette, keine Rekursion
@@ -45,7 +50,7 @@ Nächster fachlicher Schritt: **Phase 2 – Auth lokal + RBAC**.
 - **Archiv:** pragmatisch **GoBD-tauglich** (Unveränderbarkeit softwareseitig, Hash, Signatur, Audit, Aufbewahrung) – **kein** BSI TR-ESOR
 - **SSO:** lokale Konten plus **OIDC** für **Microsoft Entra ID** und **Sign in with Apple**; macOS-Kerberos/Open Directory später optional
 - **Go-Gerüst:** erledigt – Kopie der damaligen `go-micro`-Clean/Hexagonal-Struktur, Address-Demo entfernt
-- **Frontend:** Vue 3 + PrimeVue 4 (Vite) in `frontend/`, SPA in `backend/pkg/web/client` eingebettet (Platzhalter-Seite)
+- **Frontend:** Vue 3 + PrimeVue 4 (Vite) in `frontend/`, SPA in `backend/pkg/web/client` eingebettet (Login + Startseite)
 
 Keine Zertifizierung und keine Rechtsberatung: das System liefert technische Nachvollziehbarkeit; Verfahrensdokumentation bleibt organisatorisch.
 
@@ -98,7 +103,7 @@ Schichten (Abhängigkeiten nur nach innen; Domain kennt keine Adapter):
 ```mermaid
 flowchart TB
   subgraph inbound [Inbound Adapter]
-    HTTP[adapter inbound http apiv1 JWT]
+    HTTP[adapter inbound http apiv1 JWT IdP]
   end
   subgraph app [Domain Use Cases]
     Doc[domain document]
@@ -140,8 +145,8 @@ flowchart TB
 - Go 1.26, Chi, **samber/do** v2, Wiring in `internal/bootstrap` (`InitServices` + `Provide` je Paket)
 - YAML-Config (`internal/config`, `-c`, `${}`, `secretfile`)
 - Infrastructure: `shttp`, `health`, `logging` (slog, GELF, VictoriaLogs), OTEL, Prometheus
-- Inbound: `adapter/inbound/http` (apiv1, JWT in `.../auth`, Swagger UI)
-- Outbound: Port im Domain-Paket (`document.Store`), Implementierung + Factory unter `adapter/outbound/store`, `Provide` registriert die Port-Implementierung
+- Inbound: `adapter/inbound/http` (apiv1, JWT in `.../auth`, IdP unter `/auth`, Swagger UI)
+- Outbound: Ports in Domain-Paketen (`document.Store`, `identity.UserStore`); Implementierung + Factory unter `adapter/outbound/{store,identity}`
 - `internal/shared` (serror, httputils), `backend/pkg/web` Embed, `backend/api/` Swagger, `bruno/`, `scripts/`, `frontend/`
 - Docker-Build: Binary `arcivio`, Image `mcs/arcivio` (`scripts/dockerbuild.cmd`)
 
@@ -155,8 +160,8 @@ Noch geplant (als Domain + Ports + Adapter, nicht als `internal/services`):
 
 - **Suche:** Bleve v2 (Text + Vector, Build-Tag `vectors`) als Outbound
 - **Krypto:** SHA-256, CMS/PKCS#7; At-Rest PQC in Infrastructure `cryptofs`
-- **Auth:** Domain Identity; JWT-Middleware bleibt Inbound; Login/OIDC stellen dasselbe JWT aus
-- **Frontend:** Kernflows in PrimeVue (Platzhalter existiert)
+- **AuthZ:** Permission-Checks an Fach-APIs; Admin-User-API; externes OIDC (Entra/Apple)
+- **Frontend:** Kernflows in PrimeVue (Login/Startseite existieren)
 
 ## Datenmodell (Kern)
 
@@ -344,23 +349,23 @@ Parser-Fehler: HTTP 400, UI zeigt die Stelle. KI/Vektor-Suche ist ein **anderer*
 
 Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `service.yaml`). Use Cases in `domain/identity`; Persistenz Outbound SQLite.
 
-**Interner IdP** (lokal, kein Keycloak): Benutzername + Argon2id-Passwort. SSO (Entra/Apple) ist zusätzlich; nach OIDC entsteht dasselbe interne JWT.
+**Interner IdP** (lokal, kein Keycloak): Benutzername + Argon2id-Passwort. HTTP-Adapter unter `/auth`, Domain `idp`. SSO (Entra/Apple) ist zusätzlich geplant; nach OIDC entsteht dasselbe interne JWT.
 
-- JWT im Header oder Cookie; CSRF wenn Cookie-basiert
-- RBAC: `admin`, `archivist`, `clerk`, `reader`; Feingranular `document.create`, `archive.seal`, `retention.dispose`
+- JWT im Authorization-Header; Access-Token RS256, Prüfung über den IdP (JWKS)
+- RBAC-Rollen am User und im Token: `admin`, `archivist`, `clerk`, `reader`; Feingranular `document.create`, `archive.seal`, `retention.dispose` **noch nicht** durchgesetzt
 - Nutzerfeld `mustChangePassword` (boolean)
 
 **Bootstrap beim ersten Start:** Ist die Nutzertabelle leer, wird genau ein User `admin` mit Passwort `admin` und Rolle `admin` angelegt, `mustChangePassword=true`. Kein zweites automatisches Anlegen, wenn schon Nutzer existieren.
 
 **Passwortänderungspflicht (interner IdP):**
 
-- Login mit gültigem Passwort, aber `mustChangePassword`: kein volles API-JWT. Nur Wechsel-Token bzw. `POST /api/v1/auth/change-password` (alt + neu). UI zwingt zur Änderung **bei/sofort nach** der ersten Anmeldung (Admin mit `admin` ebenso).
-- Nach erfolgreichem Wechsel: `mustChangePassword=false`, normales JWT.
-- Legt ein User einen anderen User an: der interne IdP setzt ein **zufälliges** Einmalpasswort (nur einmal an den Anleger zurück, nicht persistiert im Klartext), Zieluser `mustChangePassword=true`. Gleiche Login-Regel.
+- Login mit gültigem Passwort, aber `mustChangePassword`: kein Auth-Code. Nur `POST /auth/change-password` (alt + neu) im laufenden Authorize-Request. UI zwingt zur Änderung **bei/sofort nach** der ersten Anmeldung (Admin mit `admin` ebenso).
+- Nach erfolgreichem Wechsel: `mustChangePassword=false`, Redirect mit Code, danach Token-Austausch (PKCE).
+- Legt ein User einen anderen User an: der interne IdP setzt ein **zufälliges** Einmalpasswort (nur einmal an den Anleger zurück, nicht persistiert im Klartext), Zieluser `mustChangePassword=true`. Gleiche Login-Regel. CreateUser ist Domain-Use-Case, noch ohne Admin-HTTP-API.
 
 OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwort-Protokoll. TOTP später optional.
 
-**Ist:** JWT-Middleware und Config-Block existieren; `auth.type` ist in den Laufzeit-Configs leer, `JWT.Validate` ist nicht implementiert. Tenant-Header/-Claims sind entfernt.
+**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login und `GET /api/v1/me`. Rollen liegen am User/JWT. **Nicht:** Permission-Checks, Benutzerverwaltung-API, Entra/Apple.
 
 ## Auditlog
 
@@ -398,37 +403,38 @@ Fluide OCR-Updates zählen als Document-Update nur wenn `document.cud` an ist (k
 
 Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cmd` vor dem Go-Build); HTTPS liefert SPA unter `/` und Assets unter `/client/`, plus `/api/v1`.
 
-**Ist:** Platzhalter-Seite „Arcivio“ mit Links zu Swagger/Health und einem PrimeVue-Button.
+**Ist:** Login (Benutzername/Passwort), Pflichtwechsel, OIDC-Callback, Startseite mit aktuellem User (`/api/v1/me`) und Links zu Swagger/Health.
 
 **Soll (MVP+):** Login/SSO, Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview** (Image/PDF nativ, sonst Prerender-PDF), Typschablonen-Editor, **ein Suchfeld** (Volltext/Attribute/Range), Suche-KI-Toggle, Archiv-Volumes (Status, Verify, Siegel), **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL.
 
 ## Repository-Struktur (Clean / hexagonal)
 
-**Vorhanden:** `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth}`, `backend/internal/adapter/outbound/store/sqlite`, `backend/internal/domain/document` (Stub), `backend/internal/shared`, `backend/pkg/web`, `backend/api/`, `backend/configs/`, `bruno/`, `scripts/`, `frontend/`.
+**Vorhanden:** `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp}`, `backend/internal/adapter/outbound/{store,identity}/sqlite`, `backend/internal/domain/{document,identity,idp}`, `backend/internal/shared`, `backend/pkg/web`, `backend/api/`, `backend/configs/`, `bruno/`, `scripts/`, `frontend/`.
 
-**Domain (Use Cases + Ports) – geplant, außer document-Stub:**
+**Domain (Use Cases + Ports):**
 
 - `internal/domain/document` – Typen, Versionen (archival Diff), Ports für Blob/Metadaten *(heute: nur Store-Ping)*
 - `internal/domain/fluid` – OCR/Volltext/Embeddings/Prerender-PDF
 - `internal/domain/archive` – selbsttragende Envelopes, `DEL`-Tombstones im offenen Volume, Restore, Siegel
 - `internal/domain/audit` – Schalter, Hash-Kette, Port zum Audit-Store
 - `internal/domain/search` – Query-Parser, Index-/Such-Port
-- `internal/domain/identity` – interner IdP, mustChangePassword, Bootstrap-Admin, OIDC-Orchestrierung
+- `internal/domain/identity` – lokaler User, Argon2id, mustChangePassword, Bootstrap-Admin, CreateUser *(vorhanden)*
+- `internal/domain/idp` – interner OIDC-IdP (Code+PKCE, JWT, JWKS) *(vorhanden)*
 - `internal/domain/extract` – Extraktionsjobs (Port nach außen)
 - `internal/domain/render` – Prerender nach PDF
 
 **Outbound – vorhanden / geplant:**
 
 - `adapter/outbound/store/sqlite` – Factory `type: sqlite` *(vorhanden)*
+- `adapter/outbound/identity/sqlite` – Tabelle `users` *(vorhanden)*
 - `adapter/outbound/blob` – Working-Blobs
 - `adapter/outbound/archive` – Volume-Dateien
 - `adapter/outbound/fluid` – derived files
 - `adapter/outbound/search/bleve`
 - `adapter/outbound/extract/http`
 - `adapter/outbound/render`
-- `adapter/outbound/identity/sqlite`
 
-**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. *(heute: Health, Metrics, Swagger, SPA – keine Fach-API)*
+**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. IdP-Handler unter `/auth`. *(heute: Health, Metrics, Swagger, SPA, `/auth/*`, `GET /api/v1/me`)*
 
 **Infrastructure:** `cryptofs` für At-Rest *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
 
@@ -457,9 +463,26 @@ Akzeptanzkriterien erfüllt: Binary mit `-c configs/service_local.yaml`; `/livez
 
 Aufräumarbeiten erledigt: Tenant-Header/-Claims, Bruno-Address-Vars, Docker/Makefile-Binary `arcivio`.
 
+### Phase 2 – Auth lokal (IdP erledigt, RBAC-Durchsetzung offen)
+
+Ziel: Nutzer kann sich mit Benutzername/Passwort anmelden; Passwörter nicht im Klartext; `/api/v1` nur mit JWT.
+
+Erledigt:
+
+1. Domain `identity`: User, Argon2id (PHC), Bootstrap `admin`/`admin` + `mustChangePassword`, CreateUser mit Zufallspasswort
+2. Domain `idp`: OIDC Authorization Code + PKCE S256, RS256 Access-/ID-Token, JWKS
+3. Inbound `/auth`: Discovery, JWKS, authorize, login, change-password, token, userinfo, logout
+4. JWT-Middleware prüft Token über den IdP-Verifier; `/api/v1` ohne Token → 401
+5. SPA Login + Pflichtwechsel + Callback; Vite-Proxy `/auth` und `/api`; Loopback-Redirects für Dev
+6. SQLite-Tabelle `users`; Rollen-Konstanten am User und im JWT
+7. Bruno Auth-Requests; Swagger `GET /api/v1/me`
+
+Offen in dieser Phase: Permission-Checks und Admin-User-HTTP-API. Feingranulare Rechte (`document.create`, …) mit den Fach-APIs.
+
+Akzeptanz erfüllt: Login Username/Passwort, kein Klartextpasswort in der DB, JWT für `/api/v1/me`.
+
 ### Weitere Phasen
 
-2. **Auth lokal + RBAC** – interner IdP, Bootstrap `admin`/`admin` + Pflichtwechsel, Zufallspasswort bei Anlage durch andere; JWT-Signing-Key in `secret.yaml`
 3. **Dokumente + Typen + Blob-Store**
 4. **Archiv-Volumes:** selbsttragende Envelopes, `DEL` im aktuellen Container, Restore, Siegel/Signatur
 5. **Auditlog:** Store `_audit` auto-anlegen, YAML-Schalter, Hash-Kette

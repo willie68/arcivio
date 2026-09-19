@@ -20,16 +20,17 @@ OCR, Volltext-Extraktion und Embeddings kommen über **externe** Dienste, nicht 
 
 Der technische Entwurf steht in [PLAN.md](PLAN.md). Das ist ein Architekturplan, keine fertige Spezifikation und **keine Rechtsberatung**. GoBD-Tauglichkeit ist ein Designziel, keine Zertifizierung.
 
-## Aktueller Stand (Phase 1)
+## Aktueller Stand (Phase 2 Auth)
 
 Vorhanden:
 
 - Clean-/Hexagonal-Gerüst (Go 1.26, Chi, samber/do)
 - Health (`/livez`, `/readyz`), optional Metrics, Swagger unter `/swagger/`
 - eingebettetes SQLite (`storage.type: sqlite`)
-- Platzhalter-SPA (Vue 3 + PrimeVue) unter `/`
+- interner OIDC-IdP unter `/auth` (Authorization Code + PKCE, Argon2id, RS256 JWT)
+- SPA-Login (Vue 3 + PrimeVue) unter `/`; `GET /api/v1/me` mit Bearer-Token
 
-Noch nicht vorhanden (geplant): Dokumentablage, Archiv-Volumes, Auditlog, Suche, Auth, Blob-Anzeige, optionale At-Rest-Verschlüsselung.
+Noch nicht vorhanden (geplant): Dokumentablage, Archiv-Volumes, Auditlog, Suche, RBAC-Durchsetzung, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
 
 ## Mitmachen
 
@@ -47,20 +48,33 @@ go test ./...
 go run ./cmd/service -c ./configs/service_local.yaml
 ```
 
-Mit der lokalen Beispielconfig:
+Mit der lokalen Beispielconfig (`backend/configs/service_local.yaml`):
 
 - HTTP (Health/Metrics): [http://127.0.0.1:9480/livez](http://127.0.0.1:9480/livez)
 - HTTPS (API/UI): [https://127.0.0.1:9443/](https://127.0.0.1:9443/) — Testzertifikat, Browser-Warnung ist erwartet
 
+Beim ersten Start (leere Nutzertabelle) legt der Dienst den User `admin` mit Passwort `admin` an. Die SPA verlangt danach einen Passwortwechsel (mindestens 8 Zeichen, ungleich dem alten). `/api/v1/*` ohne JWT antwortet mit 401. Bootstrap zurücksetzen: `backend/data/arcivio.db` löschen und den Dienst neu starten.
+
 Konfiguration über `-c` oder Standarddatei unter dem Benutzer-Configverzeichnis. Platzhalter `${name}` kommen aus der Umgebung. Laufzeitdaten liegen unter `data/` (nicht im Git).
 
-Frontend neu bauen:
+Frontend neu bauen (landet in `backend/pkg/web/client`):
 
 ```text
-cd web
+cd frontend
 npm install
 npm run build
 ```
+
+Oder `scripts/build.cmd` (Frontend, Swagger, Binary).
+
+Frontend-Dev (Vite, Port 5173) braucht denselben laufenden Go-Dienst; `/auth` und `/api` werden nach `https://127.0.0.1:9443` geproxyt:
+
+```text
+cd frontend
+npm run dev
+```
+
+Dann [http://localhost:5173/](http://localhost:5173/).
 
 ## Lizenz und Haftung
 
