@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import Button from "primevue/button";
-import { fetchMe, logout, startAuthorization } from "../auth/oidc";
+import { useI18n } from "vue-i18n";
+import { fetchMe, startAuthorization } from "../auth/oidc";
 
+const { t } = useI18n();
 const username = ref("");
 const roles = ref<string[]>([]);
 const error = ref("");
@@ -12,33 +13,36 @@ onMounted(async () => {
     const me = await fetchMe();
     username.value = me.username;
     roles.value = me.roles;
-  } catch {
-    await startAuthorization();
+  } catch (e) {
+    if (e instanceof Error && e.message === "not authenticated") {
+      await startAuthorization();
+      return;
+    }
+    error.value = e instanceof Error ? e.message : t("home.profileUnavailable");
   }
 });
-
-async function doLogout() {
-  await logout();
-  await startAuthorization();
-}
 </script>
 
 <template>
-  <main style="font-family: system-ui, sans-serif; padding: 2rem; max-width: 40rem">
-    <h1>Arcivio</h1>
-    <p>SOHO Dokumentenmanagement</p>
+  <section class="home">
+    <h1>{{ t("brand.name") }}</h1>
+    <p>{{ t("home.tagline") }}</p>
     <p v-if="username">
-      Angemeldet als <strong>{{ username }}</strong>
+      {{ t("home.signedIn", { name: username }) }}
       <span v-if="roles.length"> ({{ roles.join(", ") }})</span>
     </p>
-    <p v-if="error">{{ error }}</p>
-    <p>
-      <a href="/swagger/">Swagger UI</a>
-      ·
-      <a href="/livez">livez</a>
-      ·
-      <a href="/readyz">readyz</a>
-    </p>
-    <Button label="Abmelden" @click="doLogout" />
-  </main>
+    <p v-if="error" class="error">{{ error }}</p>
+  </section>
 </template>
+
+<style scoped>
+.home {
+  max-width: 40rem;
+}
+h1 {
+  margin: 0 0 0.35rem;
+}
+.error {
+  color: #b42318;
+}
+</style>

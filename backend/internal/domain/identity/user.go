@@ -32,6 +32,7 @@ type User struct {
 	MustChangePassword bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	LastLogin          *time.Time
 }
 
 // UserStore is the outbound port for local users.
@@ -41,6 +42,7 @@ type UserStore interface {
 	GetByUsername(ctx context.Context, username string) (*User, error)
 	Create(ctx context.Context, user User) error
 	Update(ctx context.Context, user User) error
+	RecordLastLogin(ctx context.Context, userID string, at time.Time) error
 }
 
 // PasswordHasher hashes and verifies passwords (Argon2id).

@@ -59,6 +59,8 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 	router.Get("/login", serveSPAIndex)
 	router.Get("/callback", serveSPAIndex)
 	router.Get("/change-password", serveSPAIndex)
+	router.Get("/account", serveSPAIndex)
+	router.Get("/account/password", serveSPAIndex)
 	clientFS, err := fs.Sub(web.WebClientAssets, "client")
 	if err != nil {
 		return nil, err
@@ -79,7 +81,9 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 				return
 			}
 		}
-		r.Get("/me", newMeHandler(inj).GetMe)
+		me := newMeHandler(inj)
+		r.Get("/me", me.GetMe)
+		r.Post("/me/password", me.ChangePassword)
 	})
 	if jwtErr != nil {
 		return nil, jwtErr

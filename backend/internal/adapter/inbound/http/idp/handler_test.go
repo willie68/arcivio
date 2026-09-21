@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -188,6 +189,18 @@ func (m *memStore) Create(_ context.Context, user identity.User) error {
 func (m *memStore) Update(_ context.Context, user identity.User) error {
 	m.users[user.Username] = user
 	return nil
+}
+
+func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {
+	for key, u := range m.users {
+		if u.ID == userID {
+			t := at
+			u.LastLogin = &t
+			m.users[key] = u
+			return nil
+		}
+	}
+	return identity.ErrUserNotFound
 }
 
 func TestCookieSecureFollowsForwardedProto(t *testing.T) {

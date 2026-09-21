@@ -20,17 +20,18 @@ OCR, Volltext-Extraktion und Embeddings kommen über **externe** Dienste, nicht 
 
 Der technische Entwurf steht in [PLAN.md](PLAN.md). Das ist ein Architekturplan, keine fertige Spezifikation und **keine Rechtsberatung**. GoBD-Tauglichkeit ist ein Designziel, keine Zertifizierung.
 
-## Aktueller Stand (Phase 2 Auth)
+## Aktueller Stand (Phase 3 UI-Gerüst)
 
 Vorhanden:
 
 - Clean-/Hexagonal-Gerüst (Go 1.26, Chi, samber/do)
 - Health (`/livez`, `/readyz`), optional Metrics, Swagger unter `/swagger/`
-- eingebettetes SQLite (`storage.type: sqlite`)
+- eingebettetes SQLite (`storage.type: sqlite`), Nutzertabelle inkl. letzter Anmeldung
 - interner OIDC-IdP unter `/auth` (Authorization Code + PKCE, Argon2id, RS256 JWT)
-- SPA-Login (Vue 3 + PrimeVue) unter `/`; `GET /api/v1/me` mit Bearer-Token
+- SPA (Vue 3 + PrimeVue Aura, DE/EN) unter `/`: App-Shell, Login, Konto, Passwortwechsel, Einstellungen-Rahmen
+- `GET /api/v1/me` und `POST /api/v1/me/password` mit Bearer-Token
 
-Noch nicht vorhanden (geplant): Dokumentablage, Archiv-Volumes, Auditlog, Suche, RBAC-Durchsetzung, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
+Noch nicht vorhanden (geplant): Settings-Masken, Dokumentablage, Archiv-Volumes, Auditlog, Suche, RBAC-Durchsetzung, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
 
 ## Mitmachen
 

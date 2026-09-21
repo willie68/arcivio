@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,20 @@ func (m *memStore) Update(_ context.Context, user User) error {
 	return nil
 }
 
+func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key, u := range m.users {
+		if u.ID == userID {
+			t := at
+			u.LastLogin = &t
+			m.users[key] = u
+			return nil
+		}
+	}
+	return ErrUserNotFound
+}
+
 func TestBootstrapOnce(t *testing.T) {
 	st := newMemStore()
 	svc := New(st, testHasher())
@@ -88,6 +103,45 @@ func TestBootstrapOnce(t *testing.T) {
 	n, err := st.Count(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)
+}
+
+func TestAuthenticateRecordsLastLogin(t *testing.T) {
+	st := newMemStore()
+	svc := New(st, testHasher())
+	fixed := time.Date(2026, 9, 21, 8, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return fixed }
+	_, err := svc.Bootstrap(context.Background())
+	require.NoError(t, err)
+
+	before, err := st.GetByUsername(context.Background(), "admin")
+	require.NoError(t, err)
+	assert.Nil(t, before.LastLogin)
+
+	u, err := svc.Authenticate(context.Background(), "admin", "admin")
+	require.NoError(t, err)
+	require.NotNil(t, u.LastLogin)
+	assert.True(t, u.LastLogin.Equal(fixed))
+
+	stored, err := st.GetByUsername(context.Background(), "admin")
+	require.NoError(t, err)
+	require.NotNil(t, stored.LastLogin)
+	assert.True(t, stored.LastLogin.Equal(fixed))
+
+	later := fixed.Add(time.Hour)
+	svc.now = func() time.Time { return later }
+	_, err = svc.Authenticate(context.Background(), "admin", "wrong")
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+	stored, err = st.GetByUsername(context.Background(), "admin")
+	require.NoError(t, err)
+	require.NotNil(t, stored.LastLogin)
+	assert.True(t, stored.LastLogin.Equal(fixed))
+
+	_, err = svc.Authenticate(context.Background(), "admin", "admin")
+	require.NoError(t, err)
+	stored, err = st.GetByUsername(context.Background(), "admin")
+	require.NoError(t, err)
+	require.NotNil(t, stored.LastLogin)
+	assert.True(t, stored.LastLogin.Equal(later))
 }
 
 func TestAuthenticateRejectsWrongPassword(t *testing.T) {

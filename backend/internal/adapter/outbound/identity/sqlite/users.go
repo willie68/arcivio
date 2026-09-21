@@ -12,7 +12,10 @@ import (
 	"github.com/willie68/arcivio/internal/domain/identity"
 )
 
-const usersMigration = "002_identity_users"
+const (
+	usersMigration     = "002_identity_users"
+	lastLoginMigration = "003_identity_users_last_login"
+)
 
 // Repo is the SQLite implementation of identity.UserStore.
 type Repo struct {
@@ -50,12 +53,31 @@ CREATE TABLE IF NOT EXISTS users (
 	if err != nil {
 		return err
 	}
+	if n == 0 {
+		if _, err := r.db.Exec(
+			`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
+			usersMigration, time.Now().UTC().Format(time.RFC3339),
+		); err != nil {
+			return err
+		}
+	}
+	return r.migrateLastLogin()
+}
+
+func (r *Repo) migrateLastLogin() error {
+	var n int
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = ?`, lastLoginMigration).Scan(&n); err != nil {
+		return err
+	}
 	if n > 0 {
 		return nil
 	}
+	if _, err := r.db.Exec(`ALTER TABLE users ADD COLUMN last_login TEXT`); err != nil {
+		return fmt.Errorf("add last_login: %w", err)
+	}
 	if _, err := r.db.Exec(
 		`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
-		usersMigration, time.Now().UTC().Format(time.RFC3339),
+		lastLoginMigration, time.Now().UTC().Format(time.RFC3339),
 	); err != nil {
 		return err
 	}
@@ -79,14 +101,15 @@ func (r *Repo) GetByUsername(ctx context.Context, username string) (*identity.Us
 	return r.scanUser(r.db.QueryRowContext(ctx, userSelect+` WHERE username = ?`, strings.ToLower(username)))
 }
 
-const userSelect = `SELECT id, username, password_hash, roles, must_change_password, created_at, updated_at FROM users`
+const userSelect = `SELECT id, username, password_hash, roles, must_change_password, created_at, updated_at, last_login FROM users`
 
 func (r *Repo) scanUser(row *sql.Row) (*identity.User, error) {
 	var u identity.User
 	var rolesJSON string
 	var must int
 	var created, updated string
-	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &rolesJSON, &must, &created, &updated)
+	var lastLogin sql.NullString
+	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &rolesJSON, &must, &created, &updated, &lastLogin)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, identity.ErrUserNotFound
 	}
@@ -99,6 +122,11 @@ func (r *Repo) scanUser(row *sql.Row) (*identity.User, error) {
 	u.MustChangePassword = must != 0
 	u.CreatedAt, _ = time.Parse(time.RFC3339, created)
 	u.UpdatedAt, _ = time.Parse(time.RFC3339, updated)
+	if lastLogin.Valid && lastLogin.String != "" {
+		if t, err := time.Parse(time.RFC3339, lastLogin.String); err == nil {
+			u.LastLogin = &t
+		}
+	}
 	return &u, nil
 }
 
@@ -136,6 +164,23 @@ UPDATE users SET password_hash = ?, roles = ?, must_change_password = ?, updated
 WHERE id = ?`,
 		user.PasswordHash, string(rolesJSON), must, user.UpdatedAt.UTC().Format(time.RFC3339), user.ID,
 	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return identity.ErrUserNotFound
+	}
+	return nil
+}
+
+// RecordLastLogin implements identity.UserStore.
+func (r *Repo) RecordLastLogin(ctx context.Context, userID string, at time.Time) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE users SET last_login = ? WHERE id = ?`,
+		at.UTC().Format(time.RFC3339), userID)
 	if err != nil {
 		return err
 	}

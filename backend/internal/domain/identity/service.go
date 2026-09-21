@@ -80,6 +80,11 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 	if err := s.hasher.Verify(u.PasswordHash, password); err != nil {
 		return nil, ErrInvalidCredentials
 	}
+	now := s.now().UTC()
+	if err := s.users.RecordLastLogin(ctx, u.ID, now); err != nil {
+		return nil, err
+	}
+	u.LastLogin = &now
 	return u, nil
 }
 

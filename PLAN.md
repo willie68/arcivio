@@ -2,9 +2,9 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-19)
+## Aktueller Stand (2026-09-21)
 
-**Phase 1 (Gerüst) ist fachlich erfüllt.** **Phase 2 Auth lokal (interner IdP) ist fachlich erfüllt**; Feingranular-RBAC an der API fehlt noch.
+**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst (App-Shell, Theme, Einstellungen-Rahmen) ist erfüllt**; Settings-Masken und Client-Fachnavigation fehlen noch. Feingranular-RBAC an der API fehlt noch.
 
 Vorhanden:
 
@@ -12,14 +12,21 @@ Vorhanden:
 - Repo-Layout: `backend/` (Go), `frontend/` (Vite/Vue), `bruno/`, `scripts/`
 - Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp}`
 - YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
-- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`)
-- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser mit Einmalpasswort)
+- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`, inkl. `last_login`)
+- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser, LastLogin bei erfolgreichem Login)
 - Domain `idp`: interner OIDC-IdP (Authorization Code + PKCE S256, RS256 JWT, JWKS)
 - HTTP `/auth` (Discovery, JWKS, authorize, login, change-password, token, userinfo, logout); JWT nur auf `/api/v1`
+- `GET /api/v1/me` (inkl. `lastLogin`), `POST /api/v1/me/password` (Passwortwechsel angemeldet)
 - Stub-Domain `internal/domain/document` (Port `Store.Ping`, Use Case `Status`)
-- Vue 3 + PrimeVue 4 + Vite in `frontend/`; `scripts/build.cmd` baut zuerst das Frontend nach `backend/pkg/web/client`, danach das Binary
-- SPA unter HTTPS `/` und `/client/` eingebettet; Login-Dialog, Pflichtwechsel, OIDC-Callback, `GET /api/v1/me`
-- Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth` und `/api` zum Go-HTTPS; Loopback-Redirects für `/callback`
+- Vue 3 + PrimeVue 4 Aura + Vite + Vue Router + vue-i18n (`de`/`en` nach Browser) in `frontend/`
+- `scripts/build.cmd` baut zuerst das Frontend nach `backend/pkg/web/client`, danach das Binary
+- SPA unter HTTPS `/` und `/client/`; Login mit Lockup-Logo, Pflichtwechsel, OIDC-Callback
+- App-Shell: Header (Marke + Zahnrad/Hilfe/Benutzer), Client-Bereich, Footer (Copyright→README, GitHub)
+- Client-Bereich umschaltbar: **Arcivio Client** (Start) und **Arcivio Einstellungen** (Zahnrad bleibt eingedrückt)
+- Benutzer-Menü: Mein Konto (Dialog), Passwort ändern (Dialog im Client-Bereich), Info, Logout
+- Einstellungen: Baum links inkl. Filter, Seite in der Mitte, kontextuelle Hilfe rechts; live, ohne Save
+- Settings-Platzhalter (Blätter): Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme
+- Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth`, `/api`, `/swagger`, `/livez`, `/readyz` zum Go-HTTPS
 - Health `/livez` `/readyz`, Swagger `/swagger/` (`/me`), `data/` und `frontend/node_modules/` gitignored
 - JWT aktiv (`auth.type: jwt`); Signaturprüfung über den IdP-Verifier
 - Bruno-Collection `arcivio` (Health + Auth Discovery/JWKS/`/me` unauth)
@@ -27,13 +34,15 @@ Vorhanden:
 
 Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-Nächster fachlicher Schritt: **Phase 3 – Dokumente + Typen + Blob-Store**. RBAC-Durchsetzung kommt mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 9.
+Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Save). Danach Fachlogik **Dokumente + Typen + Blob-Store**. Client-Module Ablage/Suche/Archiv kommen mit der Fach-UI. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
 
 ## Offene Arbeitspakete
 
 - [x] go-micro (Clean/Hexagonal) nach Arcivio kopieren, Address-Demo entfernen, PrimeVue in `backend/pkg/web/client`
 - [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
 - [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
+- [x] UI-Gerüst: App-Shell, Aura, i18n DE/EN, Client/Einstellungen-Toggle, User-Menü, Settings-Baum mit 5 Platzhalterseiten
+- [ ] Settings-Masken live ohne Save (Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme)
 - [ ] RBAC an der API durchsetzen (Rollen am User/JWT vorhanden; Permissions `document.create` etc. fehlen)
 - [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen, Blob-Store, Versionen nur bei archival Änderungen, fluider Sidecar-Speicher
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
@@ -42,6 +51,7 @@ Nächster fachlicher Schritt: **Phase 3 – Dokumente + Typen + Blob-Store**. RB
 - [ ] Extractor-Adapter, Bleve FTS mit KV-Attributen, Query-Parser (Phrase, Wildcard, AND/OR, Range, Klammern), Vector/Hybrid
 - [ ] Blobview: native Image/PDF; Outbound-Render wandelt EML/MSG/Office nach PDF als fluides File-Attribut; Frontend PDF-Anzeige
 - [ ] PrimeVue: Ablage, Typen, Suche (ein Suchfeld), Archiv-Status, Audit-Store (Admin), Benutzerverwaltung, Blobview
+- [ ] Hilfesystem: kontextsensitive Hilfe DE/EN in der SPA; bis dahin verweist „?“ auf die GitHub-README
 
 ## Annahmen
 
@@ -50,7 +60,7 @@ Nächster fachlicher Schritt: **Phase 3 – Dokumente + Typen + Blob-Store**. RB
 - **Archiv:** pragmatisch **GoBD-tauglich** (Unveränderbarkeit softwareseitig, Hash, Signatur, Audit, Aufbewahrung) – **kein** BSI TR-ESOR
 - **SSO:** lokale Konten plus **OIDC** für **Microsoft Entra ID** und **Sign in with Apple**; macOS-Kerberos/Open Directory später optional
 - **Go-Gerüst:** erledigt – Kopie der damaligen `go-micro`-Clean/Hexagonal-Struktur, Address-Demo entfernt
-- **Frontend:** Vue 3 + PrimeVue 4 (Vite) in `frontend/`, SPA in `backend/pkg/web/client` eingebettet (Login + Startseite)
+- **Frontend:** Vue 3 + PrimeVue 4 Aura (Vite) in `frontend/`, SPA in `backend/pkg/web/client` eingebettet (App-Shell, i18n, Settings-Gerüst)
 
 Keine Zertifizierung und keine Rechtsberatung: das System liefert technische Nachvollziehbarkeit; Verfahrensdokumentation bleibt organisatorisch.
 
@@ -354,18 +364,20 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 - JWT im Authorization-Header; Access-Token RS256, Prüfung über den IdP (JWKS)
 - RBAC-Rollen am User und im Token: `admin`, `archivist`, `clerk`, `reader`; Feingranular `document.create`, `archive.seal`, `retention.dispose` **noch nicht** durchgesetzt
 - Nutzerfeld `mustChangePassword` (boolean)
+- Nutzerfeld `LastLogin` (*time.Time, SQLite `last_login`); wird bei erfolgreichem `Authenticate` gesetzt, `GET /api/v1/me` liefert `lastLogin`
 
 **Bootstrap beim ersten Start:** Ist die Nutzertabelle leer, wird genau ein User `admin` mit Passwort `admin` und Rolle `admin` angelegt, `mustChangePassword=true`. Kein zweites automatisches Anlegen, wenn schon Nutzer existieren.
 
 **Passwortänderungspflicht (interner IdP):**
 
 - Login mit gültigem Passwort, aber `mustChangePassword`: kein Auth-Code. Nur `POST /auth/change-password` (alt + neu) im laufenden Authorize-Request. UI zwingt zur Änderung **bei/sofort nach** der ersten Anmeldung (Admin mit `admin` ebenso).
+- Angemeldet: `POST /api/v1/me/password` (alt + neu) mit Bearer-Token; UI-Dialog im Client-Bereich.
 - Nach erfolgreichem Wechsel: `mustChangePassword=false`, Redirect mit Code, danach Token-Austausch (PKCE).
 - Legt ein User einen anderen User an: der interne IdP setzt ein **zufälliges** Einmalpasswort (nur einmal an den Anleger zurück, nicht persistiert im Klartext), Zieluser `mustChangePassword=true`. Gleiche Login-Regel. CreateUser ist Domain-Use-Case, noch ohne Admin-HTTP-API.
 
 OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwort-Protokoll. TOTP später optional.
 
-**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login und `GET /api/v1/me`. Rollen liegen am User/JWT. **Nicht:** Permission-Checks, Benutzerverwaltung-API, Entra/Apple.
+**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login, `GET /api/v1/me` (inkl. LastLogin), `POST /api/v1/me/password`. Rollen liegen am User/JWT. **Nicht:** Permission-Checks, Benutzerverwaltung-API, Entra/Apple.
 
 ## Auditlog
 
@@ -403,9 +415,31 @@ Fluide OCR-Updates zählen als Document-Update nur wenn `document.cud` an ist (k
 
 Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cmd` vor dem Go-Build); HTTPS liefert SPA unter `/` und Assets unter `/client/`, plus `/api/v1`.
 
-**Ist:** Login (Benutzername/Passwort), Pflichtwechsel, OIDC-Callback, Startseite mit aktuellem User (`/api/v1/me`) und Links zu Swagger/Health.
+**Ist:** Vue Router (`/`, `/login`, `/callback`). PrimeVue Aura, vue-i18n (`de` wenn Browser-Sprache mit `de` beginnt, sonst `en`). App-Shell nach Login: Header (Marke, Zahnrad, Hilfe, Benutzer-Menü), Client-Bereich, einzeiliger Footer. Login mit Lockup-Logo; Pflichtwechsel und Callback im gleichen Look.
 
-**Soll (MVP+):** Login/SSO, Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview** (Image/PDF nativ, sonst Prerender-PDF), Typschablonen-Editor, **ein Suchfeld** (Volltext/Attribute/Range), Suche-KI-Toggle, Archiv-Volumes (Status, Verify, Siegel), **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL.
+Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder **Arcivio Einstellungen** (Zahnrad-Toggle, Button bleibt eingedrückt). Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe. Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Aktuelle Wurzel-Blätter (Platzhalter): Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme.
+
+Benutzer-Menü: Mein Konto (Dialog inkl. LastLogin), Passwort ändern (Dialog zentriert im Client-Bereich, `POST /api/v1/me/password`), Info, Logout.
+
+**Nächster UI-Schritt:** konkrete Settings-Masken (zuerst Benutzer), weiterhin live ohne Save. Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12). Desktop/Tablet zuerst; keine Feature-Screens (Upload, Liste, Blobview) in dieser Phase.
+
+**Soll (MVP+, spätere Phasen):** Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview**, Typschablonen-Editor, **ein Suchfeld**, Suche-KI-Toggle, Archiv-Volumes, **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL, SSO-Buttons, **Hilfesystem**.
+
+## Hilfesystem
+
+**Ist:** Header-Knopf „?“ öffnet die GitHub-README (`blob/main/README.md`) in einem neuen Tab. Gleiche URL wie der Copyright-Link im Footer. In den Einstellungen gibt es bereits eine rechte Hilfespalte (kurzer Text zur aktuellen Seite); das ist noch kein Artikel-Hilfesystem.
+
+**Soll:** kontextsensitive Hilfe in der SPA, zweisprachig wie die übrige UI (`de`/`en` nach Browser).
+
+- **Einstieg:** derselbe „?“-Knopf. Später öffnet er ein Hilfe-Panel (Drawer rechts oder eigene Route `/help`), nicht GitHub.
+- **Kontext:** Topic-ID hängt an der aktuellen Route bzw. Maske (`login`, `account`, `inbox`, `document.detail`, `search`, `archive`, `admin.users`, …). Unbekanntes Topic fällt auf die Übersicht zurück.
+- **Inhalt:** Markdown-Dateien im Repo, mitgeliefert im Frontend-Build (z. B. `frontend/src/help/{de,en}/*.md`). Kein externer CMS, keine Pflicht-Netzverbindung. Version der Hilfe = Produktversion.
+- **Struktur:** kurze Artikel (Was ist das / Was tun / Hinweise), Querverweise, optional Anker auf PLAN-Kapitel nur für Entwickler – Anwenderhilfe bleibt fachlich und ohne Architekturjargon.
+- **Suche:** ein Suchfeld über Titel und Volltext der lokalen Artikel (einfacher Client-Index reicht; kein Bleve).
+- **Rollen:** Admin-Themen (Audit, Benutzer, Siegel) nur anzeigen, wenn die Rolle passt; gleiche Regel wie Navigation.
+- **Offline/SOHO:** Hilfe bleibt im Binary. Der README-Link bleibt als „Projektseite / Mitmachen“ im Footer und im Info-Dialog, nicht als Ersatz für die Bedienungshilfe.
+
+Umsetzung nach den ersten Fachmasken (Phase 12 oder mitziehend je Feature): jedes neue UI-Modul liefert seinen Hilfe-Artikel mit. Bis dahin bleibt „?“ = README.
 
 ## Repository-Struktur (Clean / hexagonal)
 
@@ -418,7 +452,7 @@ Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cm
 - `internal/domain/archive` – selbsttragende Envelopes, `DEL`-Tombstones im offenen Volume, Restore, Siegel
 - `internal/domain/audit` – Schalter, Hash-Kette, Port zum Audit-Store
 - `internal/domain/search` – Query-Parser, Index-/Such-Port
-- `internal/domain/identity` – lokaler User, Argon2id, mustChangePassword, Bootstrap-Admin, CreateUser *(vorhanden)*
+- `internal/domain/identity` – lokaler User, Argon2id, mustChangePassword, LastLogin, Bootstrap-Admin, CreateUser *(vorhanden)*
 - `internal/domain/idp` – interner OIDC-IdP (Code+PKCE, JWT, JWKS) *(vorhanden)*
 - `internal/domain/extract` – Extraktionsjobs (Port nach außen)
 - `internal/domain/render` – Prerender nach PDF
@@ -426,7 +460,7 @@ Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cm
 **Outbound – vorhanden / geplant:**
 
 - `adapter/outbound/store/sqlite` – Factory `type: sqlite` *(vorhanden)*
-- `adapter/outbound/identity/sqlite` – Tabelle `users` *(vorhanden)*
+- `adapter/outbound/identity/sqlite` – Tabelle `users` inkl. `last_login` *(vorhanden)*
 - `adapter/outbound/blob` – Working-Blobs
 - `adapter/outbound/archive` – Volume-Dateien
 - `adapter/outbound/fluid` – derived files
@@ -434,11 +468,11 @@ Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cm
 - `adapter/outbound/extract/http`
 - `adapter/outbound/render`
 
-**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. IdP-Handler unter `/auth`. *(heute: Health, Metrics, Swagger, SPA, `/auth/*`, `GET /api/v1/me`)*
+**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. IdP-Handler unter `/auth`. *(heute: Health, Metrics, Swagger, SPA, `/auth/*`, `GET /api/v1/me`, `POST /api/v1/me/password`)*
 
 **Infrastructure:** `cryptofs` für At-Rest *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
 
-Frontend-Quellen `frontend/`, Output `backend/pkg/web/client`. Laufzeit `data/` und `frontend/node_modules/` gitignored.
+Frontend-Quellen `frontend/` (u. a. `src/layouts`, `src/settings`, `src/i18n`, `src/assets/brand`), Output `backend/pkg/web/client`. Laufzeit `data/` und `frontend/node_modules/` gitignored.
 
 ## Umsetzungsphasen
 
@@ -475,23 +509,41 @@ Erledigt:
 4. JWT-Middleware prüft Token über den IdP-Verifier; `/api/v1` ohne Token → 401
 5. SPA Login + Pflichtwechsel + Callback; Vite-Proxy `/auth` und `/api`; Loopback-Redirects für Dev
 6. SQLite-Tabelle `users`; Rollen-Konstanten am User und im JWT
-7. Bruno Auth-Requests; Swagger `GET /api/v1/me`
+7. Bruno Auth-Requests; Swagger `GET /api/v1/me`; `POST /api/v1/me/password`; LastLogin in Store und `/me`
 
 Offen in dieser Phase: Permission-Checks und Admin-User-HTTP-API. Feingranulare Rechte (`document.create`, …) mit den Fach-APIs.
 
 Akzeptanz erfüllt: Login Username/Passwort, kein Klartextpasswort in der DB, JWT für `/api/v1/me`.
 
+### Phase 3 – Grundlegendes UI-Design (Gerüst erledigt)
+
+Ziel: nach dem Login wirkt Arcivio wie eine Anwendung, nicht wie drei lose Seiten. Noch keine Dokument-Fachlogik.
+
+Erledigt:
+
+1. PrimeVue Aura, Brand-Marken, vue-i18n DE/EN nach Browser
+2. App-Shell: Header (Logo, Zahnrad, Hilfe, Benutzer), Client-Bereich, Footer
+3. Geschützte Route `/` in der Shell; `/login` und `/callback` ohne Shell
+4. Client/Einstellungen-Toggle; Settings-Baum mit Filter; Platzhalterseiten Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme; Hilfe-Spalte
+5. User-Menü: Konto-Dialog, Passwort-Dialog (im Client-Bereich), Info, Logout
+6. Startseite als Client-Platzhalter (Begrüßung)
+
+Offen in dieser Phase: konkrete Settings-Masken (live, ohne Save), beginnend mit Benutzer.
+
+Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus wie dasselbe Produkt.
+
 ### Weitere Phasen
 
-3. **Dokumente + Typen + Blob-Store**
-4. **Archiv-Volumes:** selbsttragende Envelopes, `DEL` im aktuellen Container, Restore, Siegel/Signatur
-5. **Auditlog:** Store `_audit` auto-anlegen, YAML-Schalter, Hash-Kette
-6. **At-Rest-Crypto:** optional ML-KEM-Hybrid + AES-256-GCM für alle Stores inkl. SQLite/Bleve
-7. **Extractor-Adapter + Bleve FTS** (KV-Attribute, Query-Parser)
-8. **Vektorfeld + Hybrid-Suche**
-9. **OIDC Entra + Apple**
-10. **Blobview:** native Viewer + Outbound-Render + fluides `previewPdf`
-11. **PrimeVue-UI** der Kernflows, Single-Binary-Release
+4. **Dokumente + Typen + Blob-Store**
+5. **Archiv-Volumes:** selbsttragende Envelopes, `DEL` im aktuellen Container, Restore, Siegel/Signatur
+6. **Auditlog:** Store `_audit` auto-anlegen, YAML-Schalter, Hash-Kette
+7. **At-Rest-Crypto:** optional ML-KEM-Hybrid + AES-256-GCM für alle Stores inkl. SQLite/Bleve
+8. **Extractor-Adapter + Bleve FTS** (KV-Attribute, Query-Parser)
+9. **Vektorfeld + Hybrid-Suche**
+10. **OIDC Entra + Apple**
+11. **Blobview:** native Viewer + Outbound-Render + fluides `previewPdf`
+12. **Fach-UI** der Kernflows in der bestehenden Shell, Single-Binary-Release
+13. **Hilfesystem:** In-App-Artikel DE/EN, kontextsensitiv zum „?“; README bleibt nur Projektlink
 
 ## Bewusst nicht im ersten Wurf
 

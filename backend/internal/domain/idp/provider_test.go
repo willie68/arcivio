@@ -68,6 +68,20 @@ func (m *memStore) Update(_ context.Context, user identity.User) error {
 	return nil
 }
 
+func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key, u := range m.users {
+		if u.ID == userID {
+			t := at
+			u.LastLogin = &t
+			m.users[key] = u
+			return nil
+		}
+	}
+	return identity.ErrUserNotFound
+}
+
 func newTestIDP(t *testing.T) (*Provider, *identity.Service) {
 	t.Helper()
 	st := newMemStore()

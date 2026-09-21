@@ -56,3 +56,44 @@ func TestUserRepoCRUD(t *testing.T) {
 	_, err = repo.GetByUsername(context.Background(), "missing")
 	assert.ErrorIs(t, err, identity.ErrUserNotFound)
 }
+
+func TestUserRepoRecordLastLogin(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "id.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	u := identity.User{
+		ID:                 "u1",
+		Username:           "admin",
+		PasswordHash:       "$argon2id$v=19$m=16,t=1,p=1$YWFhYWFhYWFhYWFhYWFhYQ$YmJiYmJiYmJiYmJiYmJiYg",
+		Roles:              []string{identity.RoleAdmin},
+		MustChangePassword: true,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+	require.NoError(t, repo.Create(context.Background(), u))
+
+	got, err := repo.GetByID(context.Background(), "u1")
+	require.NoError(t, err)
+	assert.Nil(t, got.LastLogin)
+
+	loginAt := now.Add(2 * time.Minute)
+	require.NoError(t, repo.RecordLastLogin(context.Background(), "u1", loginAt))
+
+	got.MustChangePassword = false
+	got.UpdatedAt = now.Add(time.Minute)
+	require.NoError(t, repo.Update(context.Background(), *got))
+
+	byID, err := repo.GetByID(context.Background(), "u1")
+	require.NoError(t, err)
+	require.NotNil(t, byID.LastLogin)
+	assert.True(t, byID.LastLogin.Equal(loginAt))
+	assert.False(t, byID.MustChangePassword)
+
+	err = repo.RecordLastLogin(context.Background(), "missing", loginAt)
+	assert.ErrorIs(t, err, identity.ErrUserNotFound)
+}

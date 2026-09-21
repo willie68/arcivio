@@ -133,7 +133,38 @@ export async function logout(): Promise<void> {
   clearSession();
 }
 
-export async function fetchMe(): Promise<{ id: string; username: string; roles: string[]; mustChangePassword: boolean }> {
+export async function changeOwnPassword(oldPassword: string, newPassword: string): Promise<void> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error("not authenticated");
+  }
+  const res = await fetch("/api/v1/me/password", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ oldPassword, newPassword }),
+  });
+  if (res.status === 401) {
+    clearSession();
+    throw new Error("not authenticated");
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.key || "password-change-failed");
+  }
+}
+
+export type Me = {
+  id: string;
+  username: string;
+  roles: string[];
+  mustChangePassword: boolean;
+  lastLogin?: string | null;
+};
+
+export async function fetchMe(): Promise<Me> {
   const token = getAccessToken();
   if (!token) {
     throw new Error("not authenticated");

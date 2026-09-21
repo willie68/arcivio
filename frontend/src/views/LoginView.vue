@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { changePassword, hasPendingAuthRequest, login, startAuthorization } from "../auth/oidc";
+import lockupLight from "../assets/brand/lockup-light.png";
 
+const { t } = useI18n();
 const username = ref("admin");
 const password = ref("");
 const oldPassword = ref("");
@@ -16,14 +19,14 @@ function applyResult(res: { status: string; redirectTo?: string }) {
   if (res.status === "password_change_required") {
     needChange.value = true;
     oldPassword.value = password.value;
-    error.value = "Bitte das Passwort jetzt ändern (Erstlogin).";
+    error.value = t("login.mustChange");
     return;
   }
   if (res.status === "ok" && res.redirectTo) {
     window.location.assign(res.redirectTo);
     return;
   }
-  error.value = "Unerwartete Antwort vom Anmeldeserver.";
+  error.value = t("login.unexpected");
 }
 
 onMounted(async () => {
@@ -35,7 +38,7 @@ onMounted(async () => {
     await startAuthorization();
   } catch (e) {
     preparing.value = false;
-    error.value = e instanceof Error ? e.message : "Anmeldung konnte nicht gestartet werden";
+    error.value = e instanceof Error ? e.message : t("login.startFailed");
   }
 });
 
@@ -46,7 +49,7 @@ async function submitLogin() {
     const res = await login(username.value, password.value);
     applyResult(res);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Anmeldung fehlgeschlagen";
+    const msg = e instanceof Error ? e.message : t("login.failed");
     if (msg.includes("start the authorization") || msg.includes("login-required")) {
       await startAuthorization();
       return;
@@ -60,7 +63,7 @@ async function submitLogin() {
 async function submitChange() {
   error.value = "";
   if (newPassword.value !== confirmPassword.value) {
-    error.value = "Die neuen Passwörter stimmen nicht überein.";
+    error.value = t("changePassword.mismatch");
     return;
   }
   busy.value = true;
@@ -68,7 +71,7 @@ async function submitChange() {
     const res = await changePassword(oldPassword.value, newPassword.value);
     applyResult(res);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "Passwortänderung fehlgeschlagen";
+    error.value = e instanceof Error ? e.message : t("changePassword.failed");
   } finally {
     busy.value = false;
   }
@@ -78,37 +81,37 @@ async function submitChange() {
 <template>
   <main class="page">
     <section class="card">
-      <h1>Arcivio</h1>
-      <p class="lead">Anmeldung</p>
-      <p v-if="preparing" class="hint">Anmeldesitzung wird vorbereitet …</p>
+      <img class="brand" :src="lockupLight" :alt="t('brand.name')" />
+      <p class="lead">{{ t("login.title") }}</p>
+      <p v-if="preparing" class="hint">{{ t("login.preparing") }}</p>
       <form v-if="!needChange" class="form" @submit.prevent="submitLogin">
         <label>
-          Benutzername
+          {{ t("login.username") }}
           <input v-model="username" type="text" autocomplete="username" class="native" />
         </label>
         <label>
-          Passwort
+          {{ t("login.password") }}
           <input v-model="password" type="password" autocomplete="current-password" class="native" />
         </label>
         <p v-if="error" class="error">{{ error }}</p>
-        <button class="submit" type="submit" :disabled="busy">Anmelden</button>
+        <button class="submit" type="submit" :disabled="busy">{{ t("login.submit") }}</button>
       </form>
       <form v-else class="form" @submit.prevent="submitChange">
-        <p>Beim ersten Login muss das Passwort geändert werden.</p>
+        <p>{{ t("changePassword.intro") }}</p>
         <label>
-          Aktuelles Passwort
+          {{ t("changePassword.current") }}
           <input v-model="oldPassword" type="password" autocomplete="current-password" class="native" />
         </label>
         <label>
-          Neues Passwort
+          {{ t("changePassword.next") }}
           <input v-model="newPassword" type="password" autocomplete="new-password" class="native" />
         </label>
         <label>
-          Neues Passwort wiederholen
+          {{ t("changePassword.confirm") }}
           <input v-model="confirmPassword" type="password" autocomplete="new-password" class="native" />
         </label>
         <p v-if="error" class="error">{{ error }}</p>
-        <button class="submit" type="submit" :disabled="busy">Passwort speichern</button>
+        <button class="submit" type="submit" :disabled="busy">{{ t("changePassword.submit") }}</button>
       </form>
     </section>
   </main>
@@ -130,9 +133,16 @@ async function submitChange() {
   border-radius: 12px;
   box-shadow: 0 8px 30px rgb(0 0 0 / 8%);
 }
+.brand {
+  display: block;
+  width: min(16rem, 100%);
+  height: auto;
+  margin: 0 auto 0.25rem;
+}
 .lead {
-  margin-top: 0;
+  margin: 0 0 0.5rem;
   color: #555;
+  text-align: center;
 }
 .hint {
   color: #555;
