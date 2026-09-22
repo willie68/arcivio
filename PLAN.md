@@ -2,7 +2,7 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-21)
+## Aktueller Stand (2026-09-22)
 
 **Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst (App-Shell, Theme, Einstellungen-Rahmen) ist erfüllt**; Settings-Masken und Client-Fachnavigation fehlen noch. Feingranular-RBAC an der API fehlt noch.
 
@@ -34,7 +34,7 @@ Vorhanden:
 
 Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Save). Danach Fachlogik **Dokumente + Typen + Blob-Store**. Client-Module Ablage/Suche/Archiv kommen mit der Fach-UI. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
+Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Save). Danach **Ablagen (Stores)** plus **Dokumente + Typen**. Client-Module Ablage/Suche/Archiv kommen mit der Fach-UI. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
 
 ## Offene Arbeitspakete
 
@@ -43,11 +43,12 @@ Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Sav
 - [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
 - [x] UI-Gerüst: App-Shell, Aura, i18n DE/EN, Client/Einstellungen-Toggle, User-Menü, Settings-Baum mit 5 Platzhalterseiten
 - [ ] Settings-Masken live ohne Save (Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme)
+- [ ] Ablagen (Stores): selbsttragendes Verzeichnis pro Ablage, Default-Store beim ersten Start, optionales Masterpasswort nur bei Anlage
 - [ ] RBAC an der API durchsetzen (Rollen am User/JWT vorhanden; Permissions `document.create` etc. fehlen)
-- [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen, Blob-Store, Versionen nur bei archival Änderungen, fluider Sidecar-Speicher
+- [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen; Zuordnung Typ↔Ablage n:m; Typkopie in der Ablage beim ersten Ablegen
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
 - [ ] Auditlog: bereichsweise YAML-Schalter, AUDIT-Envelopes im Auto-Store `_audit`, Admin-Einsicht, Hash-Kette, keine Rekursion
-- [ ] Optionale PQC-At-Rest-Verschlüsselung: ML-KEM-Hybrid wrappt AES-256-GCM-DEK für Archiv, Fluid, Working, SQLite (und Bleve); Default aus
+- [ ] Optionale At-Rest-Verschlüsselung **pro Ablage** (Masterpasswort bei Anlage); ohne Passwort bleibt das Verzeichnis offen; ML-KEM-Hybrid + AES-256-GCM
 - [ ] Extractor-Adapter, Bleve FTS mit KV-Attributen, Query-Parser (Phrase, Wildcard, AND/OR, Range, Klammern), Vector/Hybrid
 - [ ] Blobview: native Image/PDF; Outbound-Render wandelt EML/MSG/Office nach PDF als fluides File-Attribut; Frontend PDF-Anzeige
 - [ ] PrimeVue: Ablage, Typen, Suche (ein Suchfeld), Archiv-Status, Audit-Store (Admin), Benutzerverwaltung, Blobview
@@ -61,6 +62,7 @@ Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Sav
 - **SSO:** lokale Konten plus **OIDC** für **Microsoft Entra ID** und **Sign in with Apple**; macOS-Kerberos/Open Directory später optional
 - **Go-Gerüst:** erledigt – Kopie der damaligen `go-micro`-Clean/Hexagonal-Struktur, Address-Demo entfernt
 - **Frontend:** Vue 3 + PrimeVue 4 Aura (Vite) in `frontend/`, SPA in `backend/pkg/web/client` eingebettet (App-Shell, i18n, Settings-Gerüst)
+- **Ablagen:** jede Dokumentablage ist ein selbsttragendes Verzeichnis (eigene SQLite, Index, Fluid, Archiv, Zertifikate); die Instanz hält nur Registry + Nutzer + kanonische Typen
 
 Keine Zertifizierung und keine Rechtsberatung: das System liefert technische Nachvollziehbarkeit; Verfahrensdokumentation bleibt organisatorisch.
 
@@ -117,6 +119,7 @@ flowchart TB
   end
   subgraph app [Domain Use Cases]
     Doc[domain document]
+    StoreD[domain store]
     ArchD[domain archive]
     SearchD[domain search]
     AuthD[domain identity]
@@ -135,12 +138,15 @@ flowchart TB
     Boot[bootstrap samber do]
   end
   HTTP --> Doc
+  HTTP --> StoreD
   HTTP --> ArchD
   HTTP --> SearchD
   HTTP --> AuthD
   HTTP --> AuditD
+  Doc --> StoreD
   Doc --> SQL
   Doc --> Vol
+  StoreD --> SQL
   SearchD --> Bleve
   AuthD --> SQL
   AuditD --> Vol
@@ -169,23 +175,79 @@ Entfernt bzw. ersetzt:
 Noch geplant (als Domain + Ports + Adapter, nicht als `internal/services`):
 
 - **Suche:** Bleve v2 (Text + Vector, Build-Tag `vectors`) als Outbound
-- **Krypto:** SHA-256, CMS/PKCS#7; At-Rest PQC in Infrastructure `cryptofs`
+- **Krypto:** SHA-256, CMS/PKCS#7; At-Rest pro Ablage in Infrastructure `cryptofs`
 - **AuthZ:** Permission-Checks an Fach-APIs; Admin-User-API; externes OIDC (Entra/Apple)
 - **Frontend:** Kernflows in PrimeVue (Login/Startseite existieren)
 
 ## Datenmodell (Kern)
 
-- **User / Role / Permission / Group**
-- **DocumentType:** Name, Schema der Metafelder, Default-Aufbewahrung, Archivpflicht
-- **Document:** Typ, Status (`inbox` / `active` / `archived`), MIME, Originalname, Verweis auf aktuelle Blob-Version
+- **User / Role / Permission / Group** – Instanzebene, nicht in der Ablage
+- **Store (Ablage):** selbsttragendes Verzeichnis; Registry-Eintrag in der Instanz (ID, Name, Pfad, verschlüsselt ja/nein)
+- **DocumentType:** Name, Schema der Metafelder, Default-Aufbewahrung, Archivpflicht; kanonisch in der Instanz, Kopie in der Ablage sobald dort ein Dokument dieses Typs liegt
+- **StoreTypeAssignment:** n:m zwischen Typ und Ablage (ein Typ in mehreren Ablagen, eine Ablage mit mehreren Typen)
+- **Document:** Ablage, Typ, Status (`inbox` / `active` / `archived`), MIME, Originalname, Verweis auf aktuelle Blob-Version
 - **Version:** nur wenn sich **archival** Inhalt oder **archival** Attribute ändern; Blob nie überschreiben
 - **RetentionPolicy** und **LegalHold**
 - **AuditEvent:** wer/was/wann/Bereich/Ergebnis, Hash-Kette; Speicherung nur im Audit-Archiv-Store, nicht als fluides SQLite-Log
 - **ArchiveVolume / ArchiveRecord:** Container, Offset, Länge, Record-Hash, Siegel/Signatur
 - **ExtractorJob:** Queue für externe Services
-- **SearchDoc:** Bleve-ID = Dokument-UUID; Index speist sich aus archival + aktuellem fluidem Stand
+- **SearchDoc:** Bleve-ID = Dokument-UUID; Index **der Ablage**, speist sich aus archival + aktuellem fluidem Stand
 
 Dokumenttypen sind **Daten**, kein Hardcode. UI rendert Felder aus dem Schema.
+
+## Ablagen (Stores)
+
+Eine **Ablage** ist der fachliche und technische Behälter für Dokumente. Der Benutzer legt Ablagen in den Einstellungen an. Beim **ersten Start** (leere Store-Registry) erzeugt die Instanz automatisch die Ablage **Default** ohne Masterpasswort.
+
+**Instanz vs. Ablage**
+
+| In der Instanz (`data/arcivio.db` u. a.) | Im Ablage-Verzeichnis |
+| --- | --- |
+| Nutzer, Rollen, LastLogin | Dokumente, Versionen, Working-Blobs |
+| Store-Registry (welche Verzeichnisse eingehängt sind) | eigene SQLite |
+| kanonischer Dokumenttypen-Katalog | Typkopien der dort abgelegten Typen |
+| System-Store `_audit` | eigener Bleve-Index, Fluid Store, Archiv-Volumes |
+| | Signatur- und Verschlüsselungszertifikate der Ablage |
+
+Nutzer wandern **nicht** mit einer Ablage mit. Eine kopierte Ablage bringt Dokumente, Typkopien, Index, Fluid, Archiv und Zertifikate mit.
+
+**Verzeichnis = selbsttragend.** Das komplette Ablageverzeichnis kann von einer Installation auf eine andere kopiert oder verschoben und dort eingehängt werden. Nach dem Einhängen (bei Verschlüsselung nach Unlock mit dem Masterpasswort) sind die Dokumente nutzbar; die in der Ablage liegenden Typkopien können in den Instanz-Katalog **importiert** werden (Merge über Typ-ID; Konflikte bei abweichendem Schema später in der UI lösen).
+
+Beispielstruktur (Default):
+
+```text
+data/stores/default/
+  store.json          # id, Anzeigename, created, encryption: false|true (kein Geheimnis)
+  meta.db             # SQLite der Ablage
+  index/              # Bleve
+  blobs/              # Working Store (Content-Addressed)
+  fluid/              # Ableitungen, previewPdf
+  archive/            # Append-Only-Volumes
+  certs/signing/      # Siegel-/Signaturzertifikate dieser Ablage
+  certs/encryption/   # Zertifikate für die Dateiverschlüsselung dieser Ablage
+  types/              # Kopien der Dokumenttyp-Definitionen, die hier vorkamen
+```
+
+`store.json` enthält keine Passwörter. Die Instanz-Registry speichert Pfad, Anzeigename und ob ein Masterpasswort gesetzt ist.
+
+**Masterpasswort (optional, nur bei Anlage)**
+
+- Default-Ablage: **kein** Passwort, Inhalt des Verzeichnisses ist offen.
+- Verschlüsselung einer Ablage: das Masterpasswort muss **bei der Anlage** gesetzt werden. Ohne Passwort bei Create bleibt die Ablage dauerhaft Klartext (kein stilles Nachrüsten).
+- Späteres Verschlüsseln einer offenen Ablage nur über einen expliziten Admin-Migrationsjob (Re-Encrypt), nicht über nachträgliches Setzen in den Stammdaten.
+- Das Passwort ist der KEK für die DEK der Ablage (siehe At-Rest). Unlock beim Einhängen bzw. beim Start für jede verschlüsselte, gemountete Ablage.
+- Ohne Passwort: SQLite, Index, Fluid, Blobs, Archiv und Zertifikate liegen unverschlüsselt im Verzeichnis – Absicht für einfache SOHO-Kopien.
+
+**Dokumenttypen ↔ Ablagen (n:m)**
+
+- Ein Typ darf in mehreren Ablagen vorkommen; eine Ablage darf mehrere Typen enthalten.
+- Die Zuordnung lebt in der Instanz (welche Typen in welcher Ablage **erlaubt** sind).
+- Sobald in einer Ablage ein Dokument eines Typs **abgelegt** wird, schreibt die Ablage eine **Kopie** der dann gültigen Typdefinition nach `types/` (Snapshot). Zweck: nach dem Einhängen in einer anderen Instanz sind die dort benötigten Typen importierbar, auch wenn der Instanz-Katalog sie nicht kennt.
+- Das Archiv-Envelope enthält zusätzlich den archival Typ-Snapshot pro Version (unverändert, für GoBD/Restore ohne Typ-Registry).
+
+**Suche:** jede Ablage hat einen eigenen Index. Eine Suche kann eine Ablage oder alle entsperrten, eingehängten Ablagen betreffen (Fan-out).
+
+**System-Store `_audit`** bleibt eine Instanz-Ablage unter `data/audit/` und ist **keine** benutzerangelegte Dokumentablage. Er wird nicht kopiert wie eine Fach-Ablage und erscheint nicht als wählbares Ziel beim Ablegen.
 
 ### Archival vs. fluide Attribute
 
@@ -202,7 +264,7 @@ Jedes Feld (Metadatum) am Typ hat `persistence: archival | fluid`.
 - OCR-/Extractor-Volltext, Konfidenz, Sprachcode, Embedding-Vektoren, KI-Zusammenfassung, nachträglich korrigierte Suchbegriffe, UI-Tags ohne Rechtswirkung
 - **Fluide Dateiattribute** (eigene Dateien im Fluid Store, nicht im Archiv): insbesondere **Prerender-PDF** (`previewPdf`) für die Blob-Anzeige; gebunden an Content-Hash des Quell-Blobs, bei neuer Engine überschreibbar ohne Dokumentversion
 - Aus **Nutzersicht** am Dokument sichtbar (eine Maske, ein Datensatz)
-- Technisch **eigener Nicht-Archiv-Speicher** (SQLite + optional Dateien unter `data/derived/<doc-id>/`), keyed nur über Dokument-ID, **ohne** Volume-Append
+- Technisch **eigener Nicht-Archiv-Speicher** in der Ablage (SQLite + Dateien unter `<store>/fluid/<doc-id>/`), keyed nur über Dokument-ID, **ohne** Volume-Append
 - Nach Archivierung **beliebig ersetzbar** (neue OCR, bessere KI): kein neues Dokument, keine Blob-Version, Archiv-Siegel unberührt
 - Bleve wird bei fluidem Update neu geschrieben; Suchtreffer folgen dem aktuellen fluiden Stand
 
@@ -212,11 +274,11 @@ Regel: Versionierung entscheidet sich am **archival Diff**, nicht am OCR-Ergebni
 
 ## Speicherung und Archiv
 
-Drei Schichten:
+Die drei Schichten liegen **je Ablage** im Ablageverzeichnis, nicht global unter `data/`:
 
-1. **Working Store:** Originale als Content-Addressed Blobs (`data/blobs/ab/cd/<sha256>`), **archival** Metadaten in SQLite. Alltag, Vorschau, erneutes Archivieren.
-2. **Fluid Store (kein Archiv):** Volltexte, Embeddings, Ableitungen und **Prerender-PDFs** (`data/derived/…` + SQLite-Tabellen `document_fluid`). Überschreibbar; optional Historie der letzten N Läufe nur für Nachvollziehbarkeit, **nicht** siegelrelevant.
-3. **Archiv:** Append-Only-**Volumes**, z. B. `archive/vol-000042.arc`. Pro archivierter Dokumentversion **ein selbsttragendes Objekt** (Envelope). Fluid wird **nicht** in den Container geschrieben.
+1. **Working Store:** Originale als Content-Addressed Blobs (`<store>/blobs/ab/cd/<sha256>`), **archival** Metadaten in der Ablage-SQLite (`<store>/meta.db`). Alltag, Vorschau, erneutes Archivieren.
+2. **Fluid Store (kein Archiv):** Volltexte, Embeddings, Ableitungen und **Prerender-PDFs** (`<store>/fluid/…` + Tabellen in `meta.db`). Überschreibbar; optional Historie der letzten N Läufe nur für Nachvollziehbarkeit, **nicht** siegelrelevant.
+3. **Archiv:** Append-Only-**Volumes**, z. B. `<store>/archive/vol-000042.arc`. Pro archivierter Dokumentversion **ein selbsttragendes Objekt** (Envelope). Fluid wird **nicht** in den Container geschrieben.
 
 **Selbsttragendes Archivobjekt:** Ein Record enthält alles, was nötig ist, das Dokument **allein aus den Containern** wiederherzustellen – ohne SQLite, ohne Working-Blobs, ohne Fluid Store:
 
@@ -226,9 +288,9 @@ Drei Schichten:
 - Originalbytes, MIME, Originaldateiname, Content-Hash
 - optional Vorgänger-Versions-ID
 
-Kein Verweis nach außen (kein Blob-Pfad, keine DB-ID als einzige Quelle). Ein Dokument darf nicht auf mehrere Records/Volumes aufgeteilt werden, außer der Envelope selbst liegt vollständig in einem Volume; sehr große Dateien: ein Envelope mit eingebettetem Payload, notfalls ein Volume nur für dieses Objekt. SQLite ist ein **Index/Cache** über die Container, nicht die Quelle der Wahrheit für archivierte Dokumente.
+Kein Verweis nach außen (kein Blob-Pfad, keine DB-ID als einzige Quelle). Ein Dokument darf nicht auf mehrere Records/Volumes aufgeteilt werden, außer der Envelope selbst liegt vollständig in einem Volume; sehr große Dateien: ein Envelope mit eingebettetem Payload, notfalls ein Volume nur für dieses Objekt. Die Ablage-SQLite ist ein **Index/Cache** über die Container, nicht die Quelle der Wahrheit für archivierte Dokumente.
 
-**Wiederherstellung (Disaster Recovery / Migration):** Volumes in ID-/Zeitreihenfolge scannen → `DOC` anwenden → spätere `DEL` für dieselbe Dokument-/Versions-ID ausblenden → Working Store und Metadaten neu aufbauen. **Fluide Attribute werden nicht wiederhergestellt**. Nach Restore: nicht gelöschte Dokumente und archival Felder vorhanden, OCR/Volltext/Embeddings leer. Bei At-Rest-Verschlüsselung ist der KEK/Passphrase nötig.
+**Wiederherstellung (Disaster Recovery / Migration):** Das Ablageverzeichnis kopieren/einhängen (Masterpasswort falls gesetzt). Alternativ nur die Volumes in ID-/Zeitreihenfolge scannen → `DOC` anwenden → spätere `DEL` für dieselbe Dokument-/Versions-ID ausblenden → Working Store und Metadaten neu aufbauen. **Fluide Attribute werden nicht aus den Containern wiederhergestellt** (liegen aber im mitkopierten `fluid/`-Ordner, sofern das ganze Verzeichnis wandert). Nach reinem Volume-Restore: nicht gelöschte Dokumente und archival Felder vorhanden, OCR/Volltext/Embeddings leer. Bei verschlüsselter Ablage ist das Masterpasswort nötig.
 
 **Löschen im Archiv (Tombstone, Append-Only):** Es wird **nicht** im Volume geändert, das den `DOC`-Record trägt (wichtig, wenn versiegelte Container auf Read-only-/WORM-Medien liegen). Stattdessen hängt das System an das **aktuell offene** Volume einen **`DEL`-Record** (Dokument-ID, Versions-ID, Zeitpunkt, Akteur-Referenz, Grund/Retention). Ist kein Volume offen (alles versiegelt), wird ein neues Volume nur für Folge-Records inkl. `DEL` eröffnet. Replay: letzter `DEL` gewinnt gegenüber älterem `DOC`. Die Originalbytes bleiben im alten Container; Speicherfreigabe höchstens später durch optionales Umkopieren in neue Volumes, nie durch Patch des alten Files. Working Store/SQLite/Index: Dokument als gelöscht führen. Fluid darf mitgelöscht werden (kein Archiv). Steuerrelevante Typen: Vier-Augen vor dem `DEL`-Append.
 
@@ -245,38 +307,38 @@ Kein Verweis nach außen (kein Blob-Pfad, keine DB-ID als einzige Quelle). Ein D
 
 Integrität: Record-Hashes, Volume-Merkle-Root, Signatur, periodische Verify-Jobs. Fluide Daten können mit dem Dokument logisch gelöscht oder unabhängig neu erzeugt werden.
 
-Signierung: interne CA (erster Admin erzeugt Root+Signing-Cert, Root offline/exportierbar) oder PKCS#12/PEM-Import. Signiert wird das **Siegel**; jedes `DOC`- und `DEL`-Envelope ist über Hash im Manifest gebunden. Fluide Attribute sind **nicht** Teil der Signatur.
+Signierung: **pro Ablage** eigene Zertifikate unter `<store>/certs/signing/` (bei Anlage erzeugt oder PKCS#12/PEM-Import). Signiert wird das **Siegel**; jedes `DOC`- und `DEL`-Envelope ist über Hash im Manifest gebunden. Fluide Attribute sind **nicht** Teil der Signatur. Eine interne Instanz-CA kann die Ablage-Zertifikate ausstellen; die Schlüssel wandern mit dem Verzeichnis.
 
-## At-Rest-Verschlüsselung (optional, PQC)
+## At-Rest-Verschlüsselung (optional, pro Ablage)
 
-Alle Dateien auf dem Speicherlaufwerk (Working-Blobs, Fluid/`data/derived`, Archiv-Volumes inkl. `_audit`, **SQLite-Datei**) können **optional** verschlüsselt werden. Default: **aus**. Ein Schalter pro Server in `service.yaml`; Schlüssel nur in `secretfile`.
+Verschlüsselt wird **nicht** die ganze Instanz, sondern optional **eine Ablage**. Default-Ablage und jede ohne Masterpasswort angelegte Ablage bleiben **offen** (Klartext im Verzeichnis). Die Instanz-SQLite (Nutzer, Registry) und `_audit` sind davon unabhängig.
 
-**Ziel:** Schutz ruhender Daten (Diebstahl/Backup-Medium), nicht TLS. TLS bleibt klassisch oder separat.
+**Ziel:** Schutz einer mitgenommenen/gestohlenen Ablage, nicht TLS. TLS bleibt klassisch.
+
+**Entscheidung nur bei Anlage:** Masterpasswort gesetzt → gesamter Inhalt des Ablageverzeichnisses (SQLite, Index, Fluid, Blobs, Archiv, Zertifikatdateien) über `cryptofs`. Kein Passwort → kein Header, Dateien lesbar. Nachträgliches An nur als expliziter Re-Encrypt-Job.
 
 **Konstruktion (hybrid, post-quantum-tauglich):**
 
-- **DEK:** AES-256-GCM (symmetrisch mit 256-bit gilt als PQ-resistent genug)
-- **Wrap der DEK:** Hybrid-KEM **ML-KEM-768** (FIPS 203) plus klassisch **X25519**, z. B. über Cloudflare CIRCL; beide Shares kombinieren (z. B. HKDF), bevor die DEK entschlüsselt wird
-- Unlock beim Start: Passphrase und/oder Keyfile aus `secret.yaml` (nicht in Git)
+- **DEK:** AES-256-GCM, **eine DEK pro verschlüsselter Ablage**
+- **Wrap der DEK:** aus dem Masterpasswort (und optional Keyfile) plus Hybrid-KEM **ML-KEM-768** (FIPS 203) und **X25519** (z. B. Cloudflare CIRCL); Shares über HKDF
+- Unlock: Passwort beim Einhängen / Start für diese Ablage; Wrap-Material liegt in der Ablage (nicht in Git, nicht als Klartext-Passwort)
 - Dateiformat: kurzer Klartext-Header (`ARCE`, Algorithmen-IDs, KEM-Ciphertexts, Nonce-Salt), danach Ciphertext
-- Ein DEK für die Instanz, rotiierbar (Re-Wrap; optionales Re-Encrypt der Dateien als Admin-Job)
+- DEK der Ablage rotiierbar (Re-Wrap); Re-Encrypt der Dateien als Admin-Job
+- Zertifikate für die Dateiverschlüsselung dieser Ablage: `<store>/certs/encryption/`
 
-**SQLite:** nicht unverschlüsselt daneben legen. Page-Level-VFS (AES-256-GCM pro Seite, DEK wie oben), damit die DB weiter normale Datei-I/O nutzt. Kein SQLCipher (nur AES, kein PQC-KEM). WAL/SHM liegen hinter demselben VFS.
+**SQLite der Ablage:** Page-Level-VFS (AES-256-GCM pro Seite, DEK der Ablage). Kein SQLCipher. WAL/SHM hinter demselben VFS.
 
-**Bleve-Index:** ebenfalls über denselben verschlüsselten Dateizugriff, sonst läge Volltext klartextlich neben den Stores.
+**Bleve-Index der Ablage:** derselbe verschlüsselte Dateizugriff, sonst läge Volltext klartextlich neben den Containern.
 
-Modul: `internal/infrastructure/cryptofs` (oder Outbound-File-Port). Archive-/Fluid-/Working-/Store-Backends schreiben nur darüber. Unverschlüsseltes Alt-Verzeichnis: einmalige Migration beim ersten Einschalten.
+Modul: `internal/infrastructure/cryptofs`. Adapter der Ablage schreiben nur darüber, wenn `store.json` encryption=true.
 
 ```yaml
 storage:
-  encryption:
-    enabled: false          # Default aus
-    kem: ml-kem-768-x25519  # Hybrid
-    dataCipher: aes-256-gcm
-    # kekFile / passphrase: nur secret.yaml
+  instanceDb: ./data/arcivio.db
+  storesRoot: ./data/stores   # Default-Ablage: ./data/stores/default
 ```
 
-Ohne `enabled` bleiben Dateien Klartext wie bisher. Umschalten auf an ohne Migration ist ein Fehlerstart (Header fehlt bzw. Klartext erkannt).
+Offene Ablage: kein `ARCE`-Header. Eine als verschlüsselt registrierte Ablage ohne gültiges Unlock ist ein Fehler beim Einhängen, nicht ein stiller Klartext-Start.
 
 ## Extraktion und Suche
 
@@ -310,7 +372,7 @@ Der Client zeigt den **aktuellen Original-Blob** (archival) an. Die Anzeige hän
 **Prerender (fluides Dateiattribut `previewPdf`):**
 
 - EML, MSG, Office (mindestens DOCX, ODT; analog ODS/ODP/XLSX/PPTX sofern die Engine sie kann)
-- der Render-Use-Case wandelt den Original-Blob nach **PDF** und legt das Ergebnis als **fluides File-Attribut** ab (`data/derived/<doc-id>/preview.pdf` plus Metadaten: MIME, Größe, Quell-Hash, Engine-Version)
+- der Render-Use-Case wandelt den Original-Blob nach **PDF** und legt das Ergebnis als **fluides File-Attribut** ab (`<store>/fluid/<doc-id>/preview.pdf` plus Metadaten: MIME, Größe, Quell-Hash, Engine-Version)
 - Frontend zeigt dieses PDF im **gleichen PDF-Viewer** wie native PDFs
 - Fehlt das Prerender oder ist der Quell-Hash veraltet: Job anstoßen, UI „wird vorbereitet“; nach Archivierung erneutes Rendern **ohne** neue Dokumentversion
 - Nach Restore aus Containern fehlt `previewPdf` (fluid) – Rendern läuft neu
@@ -383,7 +445,7 @@ OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwo
 
 Alle fachlichen Vorgänge können in ein **Auditlog** geschrieben werden. Das Log liegt **nicht** in SQLite als führendem Speicher, sondern direkt in einem **Archiv-Store** (gleiche Container-/Envelope-Technik wie Dokumente, Record-Typ `AUDIT`).
 
-**System-Store `_audit`:** Beim ersten Start automatisch angelegt (Volumes unter `archive/_audit/`). Nur Rolle `admin` sieht und durchsucht ihn in der UI; kein normales Dokumentfach. Restore der Audit-Container stellt die Protokolle wieder her (selbsttragende Events inkl. Hash-Vorgänger). Schreiben ins Auditlog wird **nicht** rekursiv auditiert; Lesen des Audit-Stores folgt den Document-Read-Schaltern nicht, sondern einem eigenen Admin-Pfad ohne Extra-Audit (sonst Rekursion).
+**System-Store `_audit`:** Beim ersten Start automatisch unter `data/audit/` angelegt (gleiche Containertechnik, kein Eintrag in der Fach-Ablagen-Liste). Nur Rolle `admin` sieht und durchsucht ihn in der UI; kein normales Dokumentfach. Restore der Audit-Container stellt die Protokolle wieder her (selbsttragende Events inkl. Hash-Vorgänger). Schreiben ins Auditlog wird **nicht** rekursiv auditiert; Lesen des Audit-Stores folgt den Document-Read-Schaltern nicht, sondern einem eigenen Admin-Pfad ohne Extra-Audit (sonst Rekursion).
 
 Jedes Event: Zeit (UTC), Akteur, Bereich, Aktion, Objekt-IDs, Ergebnis (ok/deny/fail), optionale Diff-Skizze (keine Passwörter, keine Blob-Bytes), `prevHash` + eigener Hash.
 
@@ -421,7 +483,7 @@ Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder *
 
 Benutzer-Menü: Mein Konto (Dialog inkl. LastLogin), Passwort ändern (Dialog zentriert im Client-Bereich, `POST /api/v1/me/password`), Info, Logout.
 
-**Nächster UI-Schritt:** konkrete Settings-Masken (zuerst Benutzer), weiterhin live ohne Save. Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12). Desktop/Tablet zuerst; keine Feature-Screens (Upload, Liste, Blobview) in dieser Phase.
+**Nächster UI-Schritt:** konkrete Settings-Masken (zuerst Benutzer, dann Ablagen: anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m), weiterhin live ohne Save. Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12). Desktop/Tablet zuerst; keine Feature-Screens (Upload, Liste, Blobview) in dieser Phase.
 
 **Soll (MVP+, spätere Phasen):** Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview**, Typschablonen-Editor, **ein Suchfeld**, Suche-KI-Toggle, Archiv-Volumes, **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL, SSO-Buttons, **Hilfesystem**.
 
@@ -447,9 +509,10 @@ Umsetzung nach den ersten Fachmasken (Phase 12 oder mitziehend je Feature): jede
 
 **Domain (Use Cases + Ports):**
 
-- `internal/domain/document` – Typen, Versionen (archival Diff), Ports für Blob/Metadaten *(heute: nur Store-Ping)*
-- `internal/domain/fluid` – OCR/Volltext/Embeddings/Prerender-PDF
-- `internal/domain/archive` – selbsttragende Envelopes, `DEL`-Tombstones im offenen Volume, Restore, Siegel
+- `internal/domain/store` – Ablagen-Registry, Default-Store, Einhängen, Unlock, Typkopie *(geplant)*
+- `internal/domain/document` – Typen, Versionen (archival Diff), Ports für Blob/Metadaten, gebunden an eine Ablage *(heute: nur Store-Ping)*
+- `internal/domain/fluid` – OCR/Volltext/Embeddings/Prerender-PDF **in der Ablage**
+- `internal/domain/archive` – selbsttragende Envelopes **pro Ablage**, `DEL`-Tombstones im offenen Volume, Restore, Siegel
 - `internal/domain/audit` – Schalter, Hash-Kette, Port zum Audit-Store
 - `internal/domain/search` – Query-Parser, Index-/Such-Port
 - `internal/domain/identity` – lokaler User, Argon2id, mustChangePassword, LastLogin, Bootstrap-Admin, CreateUser *(vorhanden)*
@@ -459,18 +522,18 @@ Umsetzung nach den ersten Fachmasken (Phase 12 oder mitziehend je Feature): jede
 
 **Outbound – vorhanden / geplant:**
 
-- `adapter/outbound/store/sqlite` – Factory `type: sqlite` *(vorhanden)*
-- `adapter/outbound/identity/sqlite` – Tabelle `users` inkl. `last_login` *(vorhanden)*
-- `adapter/outbound/blob` – Working-Blobs
-- `adapter/outbound/archive` – Volume-Dateien
-- `adapter/outbound/fluid` – derived files
-- `adapter/outbound/search/bleve`
+- `adapter/outbound/store/sqlite` – heute Instanz-SQLite; später zusätzlich **eine SQLite je Ablage** unter `<store>/meta.db`
+- `adapter/outbound/identity/sqlite` – Tabelle `users` inkl. `last_login` *(vorhanden, Instanz)*
+- `adapter/outbound/blob` – Working-Blobs **in `<store>/blobs`**
+- `adapter/outbound/archive` – Volumes **in `<store>/archive`**
+- `adapter/outbound/fluid` – derived files **in `<store>/fluid`**
+- `adapter/outbound/search/bleve` – **ein Index je Ablage** (`<store>/index`)
 - `adapter/outbound/extract/http`
 - `adapter/outbound/render`
 
 **Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. IdP-Handler unter `/auth`. *(heute: Health, Metrics, Swagger, SPA, `/auth/*`, `GET /api/v1/me`, `POST /api/v1/me/password`)*
 
-**Infrastructure:** `cryptofs` für At-Rest *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
+**Infrastructure:** `cryptofs` für At-Rest **pro Ablage** *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
 
 Frontend-Quellen `frontend/` (u. a. `src/layouts`, `src/settings`, `src/i18n`, `src/assets/brand`), Output `backend/pkg/web/client`. Laufzeit `data/` und `frontend/node_modules/` gitignored.
 
@@ -534,10 +597,10 @@ Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus
 
 ### Weitere Phasen
 
-4. **Dokumente + Typen + Blob-Store**
-5. **Archiv-Volumes:** selbsttragende Envelopes, `DEL` im aktuellen Container, Restore, Siegel/Signatur
-6. **Auditlog:** Store `_audit` auto-anlegen, YAML-Schalter, Hash-Kette
-7. **At-Rest-Crypto:** optional ML-KEM-Hybrid + AES-256-GCM für alle Stores inkl. SQLite/Bleve
+4. **Ablagen + Dokumente + Typen:** Default-Store, selbsttragendes Verzeichnis, n:m Typ↔Ablage, Typkopie beim Ablegen, Blob/Fluid/Index/Archiv in der Ablage
+5. **Archiv-Volumes:** selbsttragende Envelopes **pro Ablage**, `DEL` im aktuellen Container, Restore, Siegel mit Ablage-Zertifikat
+6. **Auditlog:** Instanz-Store `_audit` unter `data/audit/`, YAML-Schalter, Hash-Kette
+7. **At-Rest-Crypto:** optional **pro Ablage** (Masterpasswort bei Anlage); ML-KEM-Hybrid + AES-256-GCM für SQLite/Index/Fluid/Blobs/Archiv dieser Ablage
 8. **Extractor-Adapter + Bleve FTS** (KV-Attribute, Query-Parser)
 9. **Vektorfeld + Hybrid-Suche**
 10. **OIDC Entra + Apple**
