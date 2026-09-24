@@ -11,7 +11,7 @@ defineProps<{ title: string }>();
 
 <style scoped>
 .settings-page {
-  max-width: 44rem;
+  min-width: 0;
 }
 h1 {
   margin: 0 0 1rem;

@@ -21,12 +21,19 @@ var (
 	ErrWeakPassword       = errors.New("password does not meet requirements")
 	ErrSamePassword       = errors.New("new password must differ from the old password")
 	ErrInvalidRole        = errors.New("invalid role")
+	ErrInvalidEmail       = errors.New("invalid email")
+	ErrDeleteSelf         = errors.New("cannot delete the signed-in user")
+	ErrLastAdmin          = errors.New("cannot delete the last admin")
 )
 
 // User is a local identity (internal IdP account).
+// Username is the unique login name.
 type User struct {
 	ID                 string
 	Username           string
+	FirstName          string
+	LastName           string
+	Email              string
 	PasswordHash       string
 	Roles              []string
 	MustChangePassword bool
@@ -43,6 +50,25 @@ type UserStore interface {
 	Create(ctx context.Context, user User) error
 	Update(ctx context.Context, user User) error
 	RecordLastLogin(ctx context.Context, userID string, at time.Time) error
+	Delete(ctx context.Context, id string) error
+	CountWithRole(ctx context.Context, role string) (int, error)
+	// List returns one page of users and the total count before paging.
+	// sort is one of the Sort* fields; unknown values sort by username ascending.
+	// prefix filters login name, first name, last name and email when it has at least three characters.
+	List(ctx context.Context, offset, limit int, sort string, desc bool, prefix string) ([]User, int, error)
+}
+
+// HasRole reports whether user has role.
+func HasRole(user *User, role string) bool {
+	if user == nil {
+		return false
+	}
+	for _, r := range user.Roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
 }
 
 // PasswordHasher hashes and verifies passwords (Argon2id).

@@ -88,6 +88,27 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 	return u, nil
 }
 
+// ListUsers returns a page of users and the total count.
+// Unknown sort fields fall back to username ascending.
+func (s *Service) ListUsers(ctx context.Context, offset, limit int, sort string, desc bool, prefix string) ([]User, int, error) {
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if canonical, ok := CanonicalUserSort(sort); ok {
+		sort = canonical
+	} else {
+		sort = SortUsername
+		desc = false
+	}
+	return s.users.List(ctx, offset, limit, sort, desc, NormalizePrefix(prefix))
+}
+
 // GetByID loads a user by id.
 func (s *Service) GetByID(ctx context.Context, id string) (*User, error) {
 	if id == "" {
@@ -126,14 +147,28 @@ func (s *Service) ChangePassword(ctx context.Context, userID, oldPassword, newPa
 	return u, nil
 }
 
+// NewUser is the input for creating a local account.
+type NewUser struct {
+	Username  string
+	FirstName string
+	LastName  string
+	Email     string
+	Roles     []string
+}
+
 // CreateUser creates a local user with a random one-time password.
 // The plaintext password is returned once and not persisted.
-func (s *Service) CreateUser(ctx context.Context, username string, roles []string) (*User, string, error) {
-	username = normalizeUsername(username)
+// Username is the unique login name.
+func (s *Service) CreateUser(ctx context.Context, in NewUser) (*User, string, error) {
+	username := normalizeUsername(in.Username)
 	if username == "" {
 		return nil, "", fmt.Errorf("username required")
 	}
-	if err := ValidateRoles(roles); err != nil {
+	email, err := normalizeEmail(in.Email)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := ValidateRoles(in.Roles); err != nil {
 		return nil, "", err
 	}
 	if existing, err := s.users.GetByUsername(ctx, username); err == nil && existing != nil {
@@ -153,8 +188,11 @@ func (s *Service) CreateUser(ctx context.Context, username string, roles []strin
 	u := User{
 		ID:                 xid.New().String(),
 		Username:           username,
+		FirstName:          strings.TrimSpace(in.FirstName),
+		LastName:           strings.TrimSpace(in.LastName),
+		Email:              email,
 		PasswordHash:       hash,
-		Roles:              append([]string(nil), roles...),
+		Roles:              append([]string(nil), in.Roles...),
 		MustChangePassword: true,
 		CreatedAt:          now,
 		UpdatedAt:          now,
@@ -163,6 +201,42 @@ func (s *Service) CreateUser(ctx context.Context, username string, roles []strin
 		return nil, "", err
 	}
 	return &u, plain, nil
+}
+
+// DeleteUser removes a user. The signed-in user and the last admin cannot be deleted.
+func (s *Service) DeleteUser(ctx context.Context, actorID, userID string) error {
+	if userID == "" {
+		return ErrUserNotFound
+	}
+	if actorID == userID {
+		return ErrDeleteSelf
+	}
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if HasRole(u, RoleAdmin) {
+		n, err := s.users.CountWithRole(ctx, RoleAdmin)
+		if err != nil {
+			return err
+		}
+		if n <= 1 {
+			return ErrLastAdmin
+		}
+	}
+	return s.users.Delete(ctx, userID)
+}
+
+func normalizeEmail(email string) (string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return "", nil
+	}
+	at := strings.IndexByte(email, '@')
+	if at <= 0 || at == len(email)-1 || strings.ContainsAny(email, " \t") || !strings.Contains(email[at+1:], ".") {
+		return "", ErrInvalidEmail
+	}
+	return email, nil
 }
 
 // ValidateNewPassword enforces length and that the password actually changed.

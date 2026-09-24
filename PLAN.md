@@ -2,9 +2,9 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-22)
+## Aktueller Stand (2026-09-24)
 
-**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst (App-Shell, Theme, Einstellungen-Rahmen) ist erfüllt**; Settings-Masken und Client-Fachnavigation fehlen noch. Feingranular-RBAC an der API fehlt noch.
+**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die erste Settings-Maske (Benutzer) ist da. Rollen, Ablagen, Dokumenttypen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; die Benutzer-API prüft die Rolle `admin`.
 
 Vorhanden:
 
@@ -12,20 +12,22 @@ Vorhanden:
 - Repo-Layout: `backend/` (Go), `frontend/` (Vite/Vue), `bruno/`, `scripts/`
 - Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp}`
 - YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
-- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`, inkl. `last_login`)
-- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser, LastLogin bei erfolgreichem Login)
+- Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`: Loginname eindeutig, Vorname, Name, E-Mail, `last_login`)
+- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser, DeleteUser, LastLogin bei erfolgreichem Login)
 - Domain `idp`: interner OIDC-IdP (Authorization Code + PKCE S256, RS256 JWT, JWKS)
 - HTTP `/auth` (Discovery, JWKS, authorize, login, change-password, token, userinfo, logout); JWT nur auf `/api/v1`
-- `GET /api/v1/me` (inkl. `lastLogin`), `POST /api/v1/me/password` (Passwortwechsel angemeldet)
+- `GET /api/v1/me` (Loginname, Vorname, Name, E-Mail, `lastLogin`), `POST /api/v1/me/password`
+- Benutzer-API (nur Rolle `admin`): `GET /api/v1/users` (Seite, Sortierung, Präfixfilter ab 3 Zeichen), `POST /api/v1/users` (Einmalpasswort), `DELETE /api/v1/users/{id}`
 - Stub-Domain `internal/domain/document` (Port `Store.Ping`, Use Case `Status`)
 - Vue 3 + PrimeVue 4 Aura + Vite + Vue Router + vue-i18n (`de`/`en` nach Browser) in `frontend/`
 - `scripts/build.cmd` baut zuerst das Frontend nach `backend/pkg/web/client`, danach das Binary
 - SPA unter HTTPS `/` und `/client/`; Login mit Lockup-Logo, Pflichtwechsel, OIDC-Callback
 - App-Shell: Header (Marke + Zahnrad/Hilfe/Benutzer), Client-Bereich, Footer (Copyright→README, GitHub)
 - Client-Bereich umschaltbar: **Arcivio Client** (Start) und **Arcivio Einstellungen** (Zahnrad bleibt eingedrückt)
-- Benutzer-Menü: Mein Konto (Dialog), Passwort ändern (Dialog im Client-Bereich), Info, Logout
-- Einstellungen: Baum links inkl. Filter, Seite in der Mitte, kontextuelle Hilfe rechts; live, ohne Save
-- Settings-Platzhalter (Blätter): Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme
+- Benutzer-Menü: Mein Konto (Dialog mit Loginname, Vorname, Name, E-Mail, LastLogin), Passwort ändern (Dialog im Client-Bereich), Info, Logout
+- Client-Start: Dashboard mit Filter und einklappbaren Bereichen Useraktionen (leer = zu), Ablagen/Ordner (Default, Auditlog, Eingang), Status (Platzhalterzahlen)
+- Einstellungen: Baum links inkl. Filter, Seite in der Mitte, Hilfe rechts ein-/ausklappbar (zu: nur „?“); live, ohne Save
+- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen und Löschen. Übrige Blätter Platzhalter: Rollen, Ablagen, Dokumenttypen, externe Systeme
 - Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth`, `/api`, `/swagger`, `/livez`, `/readyz` zum Go-HTTPS
 - Health `/livez` `/readyz`, Swagger `/swagger/` (`/me`), `data/` und `frontend/node_modules/` gitignored
 - JWT aktiv (`auth.type: jwt`); Signaturprüfung über den IdP-Verifier
@@ -34,7 +36,7 @@ Vorhanden:
 
 Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Save). Danach **Ablagen (Stores)** plus **Dokumente + Typen**. Client-Module Ablage/Suche/Archiv kommen mit der Fach-UI. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
+Nächster Schritt: **weitere Settings-Masken** (Rollen, dann Ablagen: anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m). Benutzerliste ist live (Filter, Sortierung, Anlegen, Löschen), Feldänderungen am bestehenden User gibt es noch nicht. Danach **Ablagen (Stores)** plus **Dokumente + Typen**. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
 
 ## Offene Arbeitspakete
 
@@ -42,9 +44,9 @@ Nächster Schritt: **Settings-Masken** (Benutzerverwaltung zuerst, live ohne Sav
 - [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
 - [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
 - [x] UI-Gerüst: App-Shell, Aura, i18n DE/EN, Client/Einstellungen-Toggle, User-Menü, Settings-Baum mit 5 Platzhalterseiten
-- [ ] Settings-Masken live ohne Save (Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme)
+- [ ] Settings-Masken live ohne Save (Benutzerliste ist da; Rollen, Ablagen, Dokumenttypen, externe Systeme fehlen; Benutzerfelder noch nicht editierbar)
 - [ ] Ablagen (Stores): selbsttragendes Verzeichnis pro Ablage, Default-Store beim ersten Start, optionales Masterpasswort nur bei Anlage
-- [ ] RBAC an der API durchsetzen (Rollen am User/JWT vorhanden; Permissions `document.create` etc. fehlen)
+- [ ] RBAC an der API durchsetzen (Benutzer-API prüft `admin`; Permissions `document.create` etc. fehlen)
 - [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen; Zuordnung Typ↔Ablage n:m; Typkopie in der Ablage beim ersten Ablegen
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
 - [ ] Auditlog: bereichsweise YAML-Schalter, AUDIT-Envelopes im Auto-Store `_audit`, Admin-Einsicht, Hash-Kette, keine Rekursion
@@ -427,6 +429,7 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 - RBAC-Rollen am User und im Token: `admin`, `archivist`, `clerk`, `reader`; Feingranular `document.create`, `archive.seal`, `retention.dispose` **noch nicht** durchgesetzt
 - Nutzerfeld `mustChangePassword` (boolean)
 - Nutzerfeld `LastLogin` (*time.Time, SQLite `last_login`); wird bei erfolgreichem `Authenticate` gesetzt, `GET /api/v1/me` liefert `lastLogin`
+- Profilfelder `firstName`, `lastName`, `email` (E-Mail optional). `username` ist der **Loginname** und eindeutig (SQLite `UNIQUE COLLATE NOCASE`)
 
 **Bootstrap beim ersten Start:** Ist die Nutzertabelle leer, wird genau ein User `admin` mit Passwort `admin` und Rolle `admin` angelegt, `mustChangePassword=true`. Kein zweites automatisches Anlegen, wenn schon Nutzer existieren.
 
@@ -435,11 +438,12 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 - Login mit gültigem Passwort, aber `mustChangePassword`: kein Auth-Code. Nur `POST /auth/change-password` (alt + neu) im laufenden Authorize-Request. UI zwingt zur Änderung **bei/sofort nach** der ersten Anmeldung (Admin mit `admin` ebenso).
 - Angemeldet: `POST /api/v1/me/password` (alt + neu) mit Bearer-Token; UI-Dialog im Client-Bereich.
 - Nach erfolgreichem Wechsel: `mustChangePassword=false`, Redirect mit Code, danach Token-Austausch (PKCE).
-- Legt ein User einen anderen User an: der interne IdP setzt ein **zufälliges** Einmalpasswort (nur einmal an den Anleger zurück, nicht persistiert im Klartext), Zieluser `mustChangePassword=true`. Gleiche Login-Regel. CreateUser ist Domain-Use-Case, noch ohne Admin-HTTP-API.
+- Legt ein Admin einen anderen User an: `POST /api/v1/users` setzt ein **zufälliges** Einmalpasswort (nur in der Antwort, nicht im Klartext gespeichert), Zieluser `mustChangePassword=true`. Die UI zeigt es einmal. Loginname muss eindeutig sein. Rolle mindestens eine der vier RBAC-Rollen.
+- Löschen: `DELETE /api/v1/users/{id}`. Das eigene Konto und der letzte User mit Rolle `admin` bleiben. Sonst 409.
 
 OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwort-Protokoll. TOTP später optional.
 
-**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login, `GET /api/v1/me` (inkl. LastLogin), `POST /api/v1/me/password`. Rollen liegen am User/JWT. **Nicht:** Permission-Checks, Benutzerverwaltung-API, Entra/Apple.
+**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login, `GET /api/v1/me` (Profil inkl. LastLogin), `POST /api/v1/me/password`. Benutzer-API nur mit Rolle `admin`: Liste (Seite, `sort`/`order`, `prefix` ab 3 Zeichen auf Loginname, Vorname, Name oder E-Mail), Anlegen, Löschen. **Nicht:** Bearbeiten bestehender Profilfelder, Feingranular-Permissions, Entra/Apple.
 
 ## Auditlog
 
@@ -479,17 +483,23 @@ Selbsttragend: Vite-Build nach `backend/pkg/web/client` (über `scripts/build.cm
 
 **Ist:** Vue Router (`/`, `/login`, `/callback`). PrimeVue Aura, vue-i18n (`de` wenn Browser-Sprache mit `de` beginnt, sonst `en`). App-Shell nach Login: Header (Marke, Zahnrad, Hilfe, Benutzer-Menü), Client-Bereich, einzeiliger Footer. Login mit Lockup-Logo; Pflichtwechsel und Callback im gleichen Look.
 
-Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder **Arcivio Einstellungen** (Zahnrad-Toggle, Button bleibt eingedrückt). Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe. Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Aktuelle Wurzel-Blätter (Platzhalter): Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme.
+Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder **Arcivio Einstellungen** (Zahnrad-Toggle, Button bleibt eingedrückt).
 
-Benutzer-Menü: Mein Konto (Dialog inkl. LastLogin), Passwort ändern (Dialog zentriert im Client-Bereich, `POST /api/v1/me/password`), Info, Logout.
+Client-Start ist ein Dashboard: links Filter und einklappbare Bereiche (Useraktionen zu, solange leer; Ablagen/Ordner mit Default, Auditlog, Eingang; Status mit Platzhalterwerten), in der Mitte nur der Einführungstext.
 
-**Nächster UI-Schritt:** konkrete Settings-Masken (zuerst Benutzer, dann Ablagen: anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m), weiterhin live ohne Save. Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12). Desktop/Tablet zuerst; keine Feature-Screens (Upload, Liste, Blobview) in dieser Phase.
+Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blatt **Benutzer** ist die erste echte Maske. Platzhalter bleiben: Rollen, Ablagen, Dokumenttypen, externe Systeme.
+
+**Benutzer-Maske:** Tabelle mit Loginname, Vorname, Name, E-Mail, Rollen, letzter Anmeldung, Passwortwechsel. Pagination und Sortierung laufen im Backend (`sort`: `username`, `firstName`, `lastName`, `email`, `roles`, `lastLogin`, `mustChangePassword`). Unter dem Titel: links Präfixfilter (ab 3 Zeichen, sonst ungefiltert), rechts Icon-Buttons Neuer Benutzer und Löschen (Mehrfachauswahl, Bestätigung).
+
+Benutzer-Menü: Mein Konto (Dialog mit Loginname, Vorname, Name, E-Mail, LastLogin), Passwort ändern (Dialog zentriert im Client-Bereich, `POST /api/v1/me/password`), Info, Logout.
+
+**Nächster UI-Schritt:** Rollen-Maske, dann Ablagen (anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m). Benutzerfelder bestehender Konten sind noch nicht editierbar. Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12).
 
 **Soll (MVP+, spätere Phasen):** Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview**, Typschablonen-Editor, **ein Suchfeld**, Suche-KI-Toggle, Archiv-Volumes, **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL, SSO-Buttons, **Hilfesystem**.
 
 ## Hilfesystem
 
-**Ist:** Header-Knopf „?“ öffnet die GitHub-README (`blob/main/README.md`) in einem neuen Tab. Gleiche URL wie der Copyright-Link im Footer. In den Einstellungen gibt es bereits eine rechte Hilfespalte (kurzer Text zur aktuellen Seite); das ist noch kein Artikel-Hilfesystem.
+**Ist:** Header-Knopf „?“ öffnet die GitHub-README (`blob/main/README.md`) in einem neuen Tab. Gleiche URL wie der Copyright-Link im Footer. In den Einstellungen gibt es eine rechte Hilfespalte (kurzer Text zur aktuellen Seite), ein- und ausklappbar; zugeklappt bleibt nur „?“. Das ist noch kein Artikel-Hilfesystem.
 
 **Soll:** kontextsensitive Hilfe in der SPA, zweisprachig wie die übrige UI (`de`/`en` nach Browser).
 
@@ -515,7 +525,7 @@ Umsetzung nach den ersten Fachmasken (Phase 12 oder mitziehend je Feature): jede
 - `internal/domain/archive` – selbsttragende Envelopes **pro Ablage**, `DEL`-Tombstones im offenen Volume, Restore, Siegel
 - `internal/domain/audit` – Schalter, Hash-Kette, Port zum Audit-Store
 - `internal/domain/search` – Query-Parser, Index-/Such-Port
-- `internal/domain/identity` – lokaler User, Argon2id, mustChangePassword, LastLogin, Bootstrap-Admin, CreateUser *(vorhanden)*
+- `internal/domain/identity` – lokaler User (Loginname, Vorname, Name, E-Mail), Argon2id, mustChangePassword, LastLogin, Bootstrap-Admin, CreateUser, DeleteUser, Präfixliste *(vorhanden)*
 - `internal/domain/idp` – interner OIDC-IdP (Code+PKCE, JWT, JWKS) *(vorhanden)*
 - `internal/domain/extract` – Extraktionsjobs (Port nach außen)
 - `internal/domain/render` – Prerender nach PDF
@@ -523,7 +533,7 @@ Umsetzung nach den ersten Fachmasken (Phase 12 oder mitziehend je Feature): jede
 **Outbound – vorhanden / geplant:**
 
 - `adapter/outbound/store/sqlite` – heute Instanz-SQLite; später zusätzlich **eine SQLite je Ablage** unter `<store>/meta.db`
-- `adapter/outbound/identity/sqlite` – Tabelle `users` inkl. `last_login` *(vorhanden, Instanz)*
+- `adapter/outbound/identity/sqlite` – Tabelle `users` inkl. Profilfeldern und `last_login` *(vorhanden, Instanz)*
 - `adapter/outbound/blob` – Working-Blobs **in `<store>/blobs`**
 - `adapter/outbound/archive` – Volumes **in `<store>/archive`**
 - `adapter/outbound/fluid` – derived files **in `<store>/fluid`**
@@ -531,7 +541,7 @@ Umsetzung nach den ersten Fachmasken (Phase 12 oder mitziehend je Feature): jede
 - `adapter/outbound/extract/http`
 - `adapter/outbound/render`
 
-**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. IdP-Handler unter `/auth`. *(heute: Health, Metrics, Swagger, SPA, `/auth/*`, `GET /api/v1/me`, `POST /api/v1/me/password`)*
+**Inbound:** REST-Handler in `adapter/inbound/http/apiv1` rufen nur Domain-Interfaces auf, kein direkter Store-Zugriff. IdP-Handler unter `/auth`. *(heute: Health, Metrics, Swagger, SPA, `/auth/*`, `GET /api/v1/me`, `POST /api/v1/me/password`, `GET|POST /api/v1/users`, `DELETE /api/v1/users/{id}`)*
 
 **Infrastructure:** `cryptofs` für At-Rest **pro Ablage** *(geplant)*; Wiring in `bootstrap.InitServices` (`Provide` der Outbounds, dann `domain/*.Provide`, dann `shttp.Provide`).
 
@@ -573,8 +583,9 @@ Erledigt:
 5. SPA Login + Pflichtwechsel + Callback; Vite-Proxy `/auth` und `/api`; Loopback-Redirects für Dev
 6. SQLite-Tabelle `users`; Rollen-Konstanten am User und im JWT
 7. Bruno Auth-Requests; Swagger `GET /api/v1/me`; `POST /api/v1/me/password`; LastLogin in Store und `/me`
+8. Admin-Benutzer-API: Liste (Seite, Sortierung, Präfix), Anlegen mit Einmalpasswort, Löschen ohne eigenes Konto und ohne letzten Admin
 
-Offen in dieser Phase: Permission-Checks und Admin-User-HTTP-API. Feingranulare Rechte (`document.create`, …) mit den Fach-APIs.
+Offen in dieser Phase: Feingranulare Rechte (`document.create`, …) und Bearbeiten bestehender Benutzerfelder.
 
 Akzeptanz erfüllt: Login Username/Passwort, kein Klartextpasswort in der DB, JWT für `/api/v1/me`.
 
@@ -589,9 +600,10 @@ Erledigt:
 3. Geschützte Route `/` in der Shell; `/login` und `/callback` ohne Shell
 4. Client/Einstellungen-Toggle; Settings-Baum mit Filter; Platzhalterseiten Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme; Hilfe-Spalte
 5. User-Menü: Konto-Dialog, Passwort-Dialog (im Client-Bereich), Info, Logout
-6. Startseite als Client-Platzhalter (Begrüßung)
+6. Client-Dashboard: Filter, Useraktionen (zugeklappt wenn leer), Ablagen/Ordner, Status-Platzhalter; Mitte nur Einführungstext
+7. Benutzer-Maske: Tabelle, Präfixfilter, Sortierung, Anlegen, Löschen; Hilfe einklappbar; Konto-Dialog mit Profilfeldern
 
-Offen in dieser Phase: konkrete Settings-Masken (live, ohne Save), beginnend mit Benutzer.
+Offen in dieser Phase: übrige Settings-Masken (Rollen, Ablagen, Dokumenttypen, externe Systeme) und Ändern bestehender Benutzerfelder.
 
 Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus wie dasselbe Produkt.
 

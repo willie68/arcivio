@@ -6,6 +6,7 @@ import SettingsTree from "./SettingsTree.vue";
 
 const { t } = useI18n();
 const selectedId = ref(firstLeafId() ?? "");
+const helpOpen = ref(true);
 
 const nodes = computed<NavNode[]>(() => toNavNodes(settingsCatalog));
 const selectedItem = computed(() => (selectedId.value ? findItem(selectedId.value) : undefined));
@@ -31,7 +32,7 @@ function onSelect(node: NavNode) {
 </script>
 
 <template>
-  <div class="settings">
+  <div class="settings" :class="{ 'help-closed': !helpOpen }">
     <nav class="pane nav" :aria-label="t('settings.navLabel')">
       <SettingsTree :nodes="nodes" :selected-id="selectedId" @select="onSelect" />
     </nav>
@@ -39,8 +40,14 @@ function onSelect(node: NavNode) {
       <component :is="selectedItem?.page" v-if="selectedItem?.page" :title="pageTitle" />
     </section>
     <aside class="pane help" :aria-label="t('settings.helpTitle')">
-      <h2>{{ t("settings.helpTitle") }}</h2>
-      <p v-if="selectedItem">{{ t(selectedItem.helpKey) }}</p>
+      <button type="button" class="help-toggle" :aria-expanded="helpOpen" :aria-label="t('settings.helpTitle')" @click="helpOpen = !helpOpen">
+        <template v-if="helpOpen">
+          <i class="pi pi-angle-right" aria-hidden="true" />
+          <span>{{ t("settings.helpTitle") }}</span>
+        </template>
+        <span v-else class="help-mark">?</span>
+      </button>
+      <p v-if="helpOpen && selectedItem">{{ t(selectedItem.helpKey) }}</p>
     </aside>
   </div>
 </template>
@@ -52,6 +59,9 @@ function onSelect(node: NavNode) {
   flex: 1;
   min-height: 0;
   background: #fff;
+}
+.settings.help-closed {
+  grid-template-columns: 16.5rem minmax(0, 1fr) 2.4rem;
 }
 .pane {
   min-height: 0;
@@ -66,18 +76,45 @@ function onSelect(node: NavNode) {
   padding: 1.25rem 1.5rem;
 }
 .help {
-  padding: 1.15rem 1.15rem 1.35rem;
+  padding: 0.85rem 1rem 1.15rem;
   background: #f8f9fb;
   border-left: 1px solid #e4e8ec;
   color: #5b6570;
 }
-.help h2 {
+.help-closed .help {
+  padding: 0.75rem 0.3rem;
+}
+.help-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
   margin: 0 0 0.7rem;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
+  color: #5b6570;
+  font: inherit;
   font-size: 0.85rem;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #5b6570;
+  text-align: left;
+  cursor: pointer;
+}
+.help-closed .help-toggle {
+  justify-content: center;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.help-mark {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1;
+}
+.help-toggle i {
+  font-size: 0.85rem;
 }
 .help p {
   margin: 0;

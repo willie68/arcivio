@@ -57,6 +57,82 @@ func TestUserRepoCRUD(t *testing.T) {
 	assert.ErrorIs(t, err, identity.ErrUserNotFound)
 }
 
+func TestUserRepoListOrdersByUsername(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "id.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	for _, name := range []string{"zeta", "alpha"} {
+		require.NoError(t, repo.Create(context.Background(), identity.User{
+			ID:           name,
+			Username:     name,
+			PasswordHash: "hash",
+			Roles:        []string{identity.RoleReader},
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}))
+	}
+	page, total, err := repo.List(context.Background(), 0, 1, identity.SortUsername, false, "")
+	require.NoError(t, err)
+	assert.Equal(t, 2, total)
+	require.Len(t, page, 1)
+	assert.Equal(t, "alpha", page[0].Username)
+
+	page, total, err = repo.List(context.Background(), 0, 10, identity.SortUsername, false, "alp")
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, page, 1)
+	assert.Equal(t, "alpha", page[0].Username)
+
+	require.NoError(t, repo.RecordLastLogin(context.Background(), "zeta", now.Add(time.Hour)))
+	page, _, err = repo.List(context.Background(), 0, 1, identity.SortLastLogin, true, "")
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, "zeta", page[0].Username)
+}
+
+func TestUserRepoProfileAndUniqueLoginName(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "id.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	require.NoError(t, repo.Create(context.Background(), identity.User{
+		ID:           "ada",
+		Username:     "ada",
+		FirstName:    "Ada",
+		LastName:     "Lovelace",
+		Email:        "ada@example.com",
+		PasswordHash: "hash",
+		Roles:        []string{identity.RoleAdmin},
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}))
+
+	got, err := repo.GetByUsername(context.Background(), "ADA")
+	require.NoError(t, err)
+	assert.Equal(t, "Ada", got.FirstName)
+	assert.Equal(t, "Lovelace", got.LastName)
+	assert.Equal(t, "ada@example.com", got.Email)
+
+	err = repo.Create(context.Background(), identity.User{
+		ID:           "other",
+		Username:     "Ada",
+		PasswordHash: "hash",
+		Roles:        []string{identity.RoleReader},
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	})
+	assert.Error(t, err)
+}
+
 func TestUserRepoRecordLastLogin(t *testing.T) {
 	st, err := storesqlite.New(filepath.Join(t.TempDir(), "id.db"))
 	require.NoError(t, err)

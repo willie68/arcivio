@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/render"
 	"github.com/samber/do/v2"
-	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	"github.com/willie68/arcivio/internal/domain/identity"
 	"github.com/willie68/arcivio/internal/shared/serror"
 	"github.com/willie68/arcivio/internal/shared/utils/httputils"
@@ -17,6 +16,9 @@ import (
 type MeResponse struct {
 	ID                 string     `json:"id"`
 	Username           string     `json:"username"`
+	FirstName          string     `json:"firstName"`
+	LastName           string     `json:"lastName"`
+	Email              string     `json:"email"`
 	Roles              []string   `json:"roles"`
 	MustChangePassword bool       `json:"mustChangePassword"`
 	LastLogin          *time.Time `json:"lastLogin"`
@@ -47,6 +49,9 @@ func (h *meHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, MeResponse{
 		ID:                 u.ID,
 		Username:           u.Username,
+		FirstName:          u.FirstName,
+		LastName:           u.LastName,
+		Email:              u.Email,
 		Roles:              u.Roles,
 		MustChangePassword: u.MustChangePassword,
 		LastLogin:          u.LastLogin,
@@ -94,16 +99,5 @@ func (h *meHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *meHandler) currentUser(w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
-	token, claims, err := auth.FromContext(r.Context())
-	if err != nil || token == nil || !token.IsValid {
-		httputils.Err(w, r, serror.Unauthorized(err, "unauthorized", "login required"))
-		return nil, false
-	}
-	sub, _ := claims["sub"].(string)
-	u, err := h.ident.GetByID(r.Context(), sub)
-	if err != nil {
-		httputils.Err(w, r, serror.Unauthorized(err, "unauthorized", "unknown user"))
-		return nil, false
-	}
-	return u, true
+	return currentUser(h.ident, w, r)
 }

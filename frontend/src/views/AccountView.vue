@@ -5,6 +5,9 @@ import { fetchMe, startAuthorization } from "../auth/oidc";
 
 const { t, locale } = useI18n();
 const username = ref("");
+const firstName = ref("");
+const lastName = ref("");
+const email = ref("");
 const roles = ref<string[]>([]);
 const id = ref("");
 const lastLogin = ref<string | null>(null);
@@ -28,6 +31,9 @@ onMounted(async () => {
   try {
     const me = await fetchMe();
     username.value = me.username;
+    firstName.value = me.firstName ?? "";
+    lastName.value = me.lastName ?? "";
+    email.value = me.email ?? "";
     roles.value = me.roles;
     id.value = me.id;
     lastLogin.value = me.lastLogin ?? null;
@@ -50,6 +56,18 @@ onMounted(async () => {
         <dd>{{ username }}</dd>
       </div>
       <div>
+        <dt>{{ t("account.firstName") }}</dt>
+        <dd>{{ firstName || "—" }}</dd>
+      </div>
+      <div>
+        <dt>{{ t("account.lastName") }}</dt>
+        <dd>{{ lastName || "—" }}</dd>
+      </div>
+      <div>
+        <dt>{{ t("account.email") }}</dt>
+        <dd>{{ email || "—" }}</dd>
+      </div>
+      <div>
         <dt>{{ t("account.roles") }}</dt>
         <dd>{{ roles.join(", ") || "—" }}</dd>
       </div>
@@ -67,7 +85,7 @@ onMounted(async () => {
 
 <style scoped>
 .account {
-  max-width: 22rem;
+  max-width: 26rem;
 }
 dl {
   display: grid;

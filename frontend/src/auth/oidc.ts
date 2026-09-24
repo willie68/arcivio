@@ -159,10 +159,113 @@ export async function changeOwnPassword(oldPassword: string, newPassword: string
 export type Me = {
   id: string;
   username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   roles: string[];
   mustChangePassword: boolean;
   lastLogin?: string | null;
 };
+
+export type SettingsUser = {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  roles: string[];
+  mustChangePassword: boolean;
+  lastLogin?: string | null;
+};
+
+export type SettingsUserPage = {
+  items: SettingsUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export async function listUsers(
+  page: number,
+  pageSize: number,
+  sort = "username",
+  order: "asc" | "desc" = "asc",
+  prefix = "",
+): Promise<SettingsUserPage> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error("not authenticated");
+  }
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+    sort,
+    order,
+  });
+  if ([...prefix.trim()].length >= 3) {
+    params.set("prefix", prefix.trim());
+  }
+  const res = await fetch(`/api/v1/users?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    clearSession();
+    throw new Error("not authenticated");
+  }
+  if (res.status === 403) {
+    throw new Error("forbidden");
+  }
+  if (!res.ok) {
+    throw new Error("load-failed");
+  }
+  return res.json();
+}
+
+export type NewSettingsUser = {
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  roles: string[];
+};
+
+export async function createUser(input: NewSettingsUser): Promise<{ user: SettingsUser; password: string }> {
+  return apiJson("/api/v1/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  await apiJson(`/api/v1/users/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+async function apiJson(path: string, init: RequestInit): Promise<any> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error("not authenticated");
+  }
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+  if (res.status === 401) {
+    clearSession();
+    throw new Error("not authenticated");
+  }
+  if (res.status === 204) {
+    return undefined;
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.key || "request-failed");
+  }
+  return data;
+}
 
 export async function fetchMe(): Promise<Me> {
   const token = getAccessToken();

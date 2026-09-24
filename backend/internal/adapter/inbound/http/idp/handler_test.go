@@ -10,6 +10,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -189,6 +190,51 @@ func (m *memStore) Create(_ context.Context, user identity.User) error {
 func (m *memStore) Update(_ context.Context, user identity.User) error {
 	m.users[user.Username] = user
 	return nil
+}
+
+func (m *memStore) Delete(_ context.Context, id string) error {
+	for key, u := range m.users {
+		if u.ID == id {
+			delete(m.users, key)
+			return nil
+		}
+	}
+	return identity.ErrUserNotFound
+}
+
+func (m *memStore) CountWithRole(_ context.Context, role string) (int, error) {
+	n := 0
+	for _, u := range m.users {
+		if identity.HasRole(&u, role) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (m *memStore) List(_ context.Context, offset, limit int, sortField string, desc bool, prefix string) ([]identity.User, int, error) {
+	all := make([]identity.User, 0, len(m.users))
+	for _, u := range m.users {
+		if identity.MatchPrefix(u, prefix) {
+			all = append(all, u)
+		}
+	}
+	sort.Slice(all, func(i, j int) bool {
+		left, right := strings.ToLower(all[i].Username), strings.ToLower(all[j].Username)
+		if desc && sortField == identity.SortUsername {
+			return left > right
+		}
+		return left < right
+	})
+	total := len(all)
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return append([]identity.User(nil), all[offset:end]...), total, nil
 }
 
 func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {

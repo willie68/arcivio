@@ -68,6 +68,51 @@ func (m *memStore) Update(_ context.Context, user User) error {
 	return nil
 }
 
+func (m *memStore) Delete(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key, u := range m.users {
+		if u.ID == id {
+			delete(m.users, key)
+			return nil
+		}
+	}
+	return ErrUserNotFound
+}
+
+func (m *memStore) CountWithRole(_ context.Context, role string) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for _, u := range m.users {
+		if HasRole(&u, role) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (m *memStore) List(_ context.Context, offset, limit int, sortField string, desc bool, prefix string) ([]User, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	all := make([]User, 0, len(m.users))
+	for _, u := range m.users {
+		if MatchPrefix(u, prefix) {
+			all = append(all, u)
+		}
+	}
+	sortUsers(all, sortField, desc)
+	total := len(all)
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return append([]User(nil), all[offset:end]...), total, nil
+}
+
 func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -175,13 +220,58 @@ func TestChangePasswordClearsFlag(t *testing.T) {
 	assert.False(t, got.MustChangePassword)
 }
 
+func TestListUsersPagesByUsername(t *testing.T) {
+	st := newMemStore()
+	svc := New(st, testHasher())
+	_, _, err := svc.CreateUser(context.Background(), NewUser{Username: "zeta", Roles: []string{RoleReader}})
+	require.NoError(t, err)
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "alpha", FirstName: "Ann", Roles: []string{RoleClerk}})
+	require.NoError(t, err)
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "mid", Roles: []string{RoleArchivist}})
+	require.NoError(t, err)
+
+	page, total, err := svc.ListUsers(context.Background(), 0, 2, SortUsername, false, "")
+	require.NoError(t, err)
+	assert.Equal(t, 3, total)
+	require.Len(t, page, 2)
+	assert.Equal(t, "alpha", page[0].Username)
+	assert.Equal(t, "mid", page[1].Username)
+
+	page, total, err = svc.ListUsers(context.Background(), 0, 1, SortUsername, true, "")
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, "zeta", page[0].Username)
+
+	page, total, err = svc.ListUsers(context.Background(), 0, 1, "passwordHash", true, "")
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, "alpha", page[0].Username)
+
+	page, total, err = svc.ListUsers(context.Background(), 2, 2, SortUsername, false, "z")
+	require.NoError(t, err)
+	assert.Equal(t, 3, total)
+	require.Len(t, page, 1)
+	assert.Equal(t, "zeta", page[0].Username)
+
+	page, total, err = svc.ListUsers(context.Background(), 0, 10, SortUsername, false, "alp")
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, page, 1)
+	assert.Equal(t, "alpha", page[0].Username)
+
+	page, total, err = svc.ListUsers(context.Background(), 0, 10, SortFirstName, false, "ann")
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Equal(t, "alpha", page[0].Username)
+}
+
 func TestCreateUserRandomPasswordNotStored(t *testing.T) {
 	st := newMemStore()
 	svc := New(st, testHasher())
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
 
-	u, plain, err := svc.CreateUser(context.Background(), "clerk1", []string{RoleClerk})
+	u, plain, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
 	require.NoError(t, err)
 	assert.NotEmpty(t, plain)
 	assert.True(t, u.MustChangePassword)
@@ -194,7 +284,7 @@ func TestCreateUserRandomPasswordNotStored(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, u.ID, got.ID)
 
-	_, _, err = svc.CreateUser(context.Background(), "clerk1", []string{RoleClerk})
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
 	assert.ErrorIs(t, err, ErrAlreadyExists)
 }
 

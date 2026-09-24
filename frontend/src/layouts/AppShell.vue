@@ -141,11 +141,11 @@ onUnmounted(() => {
         </div>
       </div>
     </header>
-    <main class="content" :class="{ 'content--settings': settingsMode }">
+    <main class="content" :class="settingsMode ? 'content--settings' : 'content--client'">
       <div v-show="settingsMode" class="mode-host" :aria-hidden="!settingsMode">
         <SettingsView />
       </div>
-      <div v-show="!settingsMode" :aria-hidden="settingsMode">
+      <div v-show="!settingsMode" class="mode-host" :aria-hidden="settingsMode">
         <RouterView />
       </div>
       <Dialog
@@ -177,9 +177,11 @@ onUnmounted(() => {
 
 <style scoped>
 .shell {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  overflow: hidden;
 }
 .topbar {
   display: flex;
@@ -226,12 +228,9 @@ onUnmounted(() => {
 }
 .content {
   position: relative;
-  min-height: 0;
-  padding: 1.25rem 1.5rem;
-}
-.content--settings {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
 }

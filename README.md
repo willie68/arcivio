@@ -20,18 +20,19 @@ OCR, Volltext-Extraktion und Embeddings kommen über **externe** Dienste, nicht 
 
 Der technische Entwurf steht in [PLAN.md](PLAN.md). Das ist ein Architekturplan, keine fertige Spezifikation und **keine Rechtsberatung**. GoBD-Tauglichkeit ist ein Designziel, keine Zertifizierung.
 
-## Aktueller Stand (Phase 3 UI-Gerüst)
+## Aktueller Stand (Phase 3, Benutzer-Maske)
 
 Vorhanden:
 
 - Clean-/Hexagonal-Gerüst (Go 1.26, Chi, samber/do)
 - Health (`/livez`, `/readyz`), optional Metrics, Swagger unter `/swagger/`
-- eingebettetes SQLite (`storage.type: sqlite`), Nutzertabelle inkl. letzter Anmeldung
+- eingebettetes SQLite (`storage.type: sqlite`), Nutzertabelle mit Loginname (eindeutig), Vorname, Name, E-Mail und letzter Anmeldung
 - interner OIDC-IdP unter `/auth` (Authorization Code + PKCE, Argon2id, RS256 JWT)
-- SPA (Vue 3 + PrimeVue Aura, DE/EN) unter `/`: App-Shell, Login, Konto, Passwortwechsel, Einstellungen-Rahmen
+- SPA (Vue 3 + PrimeVue Aura, DE/EN) unter `/`: App-Shell, Login, Konto, Passwortwechsel, Client-Dashboard, Einstellungen
 - `GET /api/v1/me` und `POST /api/v1/me/password` mit Bearer-Token
+- Benutzerverwaltung nur für Rolle `admin`: `GET /api/v1/users` (Seite, Sortierung, Präfix ab 3 Zeichen), `POST /api/v1/users` (Einmalpasswort), `DELETE /api/v1/users/{id}`
 
-Noch nicht vorhanden (geplant): Settings-Masken, Dokumentablage, Archiv-Volumes, Auditlog, Suche, RBAC-Durchsetzung, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
+Noch nicht vorhanden (geplant): Bearbeiten bestehender Benutzer, übrige Settings-Masken, Dokumentablage, Archiv-Volumes, Auditlog, Suche, feingranulares RBAC, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
 
 ## Mitmachen
 

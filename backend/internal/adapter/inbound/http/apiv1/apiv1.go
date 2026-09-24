@@ -84,6 +84,10 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 		me := newMeHandler(inj)
 		r.Get("/me", me.GetMe)
 		r.Post("/me/password", me.ChangePassword)
+		users := newUsersHandler(inj)
+		r.Get("/users", users.List)
+		r.Post("/users", users.Create)
+		r.Delete("/users/{id}", users.Delete)
 	})
 	if jwtErr != nil {
 		return nil, jwtErr
