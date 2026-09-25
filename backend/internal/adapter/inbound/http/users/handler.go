@@ -1,6 +1,7 @@
-package apiv1
+package users
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/samber/do/v2"
+	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	"github.com/willie68/arcivio/internal/domain/identity"
 	"github.com/willie68/arcivio/internal/shared/serror"
 	"github.com/willie68/arcivio/internal/shared/utils/httputils"
@@ -35,12 +37,34 @@ type UserListResponse struct {
 	PageSize int            `json:"pageSize"`
 }
 
-type usersHandler struct {
-	ident *identity.Service
+type identityService interface {
+	ListUsers(ctx context.Context, offset, limit int, sort string, desc bool, prefix string) ([]identity.User, int, error)
+	GetByID(ctx context.Context, id string) (*identity.User, error)
+	CreateUser(ctx context.Context, in identity.NewUser) (*identity.User, string, error)
+	UpdateUser(ctx context.Context, userID string, in identity.UserPatch) (*identity.User, error)
+	ResetPassword(ctx context.Context, userID string) (*identity.User, string, error)
+	DeleteUser(ctx context.Context, actorID, userID string) error
 }
 
-func newUsersHandler(inj do.Injector) *usersHandler {
-	return &usersHandler{ident: do.MustInvoke[*identity.Service](inj)}
+// Handler serves the admin user API under /users.
+type Handler struct {
+	ident identityService
+}
+
+// New creates the HTTP adapter for local users.
+func New(inj do.Injector) *Handler {
+	return &Handler{ident: do.MustInvokeAs[identityService](inj)}
+}
+
+// Routes implements api.Handler.
+func (h *Handler) Routes() (string, *chi.Mux) {
+	r := chi.NewRouter()
+	r.Get("/", h.List)
+	r.Post("/", h.Create)
+	r.Put("/{id}", h.Update)
+	r.Post("/{id}/password-reset", h.ResetPassword)
+	r.Delete("/{id}", h.Delete)
+	return "/users", r
 }
 
 // List godoc
@@ -58,7 +82,7 @@ func newUsersHandler(inj do.Injector) *usersHandler {
 //	@Failure		401
 //	@Failure		403
 //	@Router			/users [get]
-func (h *usersHandler) List(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if _, ok := requireAdmin(h.ident, w, r); !ok {
 		return
 	}
@@ -68,13 +92,13 @@ func (h *usersHandler) List(w http.ResponseWriter, r *http.Request) {
 		pageSize = 100
 	}
 	sortField, desc := querySort(r)
-	users, total, err := h.ident.ListUsers(r.Context(), (page-1)*pageSize, pageSize, sortField, desc, r.URL.Query().Get("prefix"))
+	listed, total, err := h.ident.ListUsers(r.Context(), (page-1)*pageSize, pageSize, sortField, desc, r.URL.Query().Get("prefix"))
 	if err != nil {
 		httputils.Err(w, r, err)
 		return
 	}
-	items := make([]UserResponse, 0, len(users))
-	for _, u := range users {
+	items := make([]UserResponse, 0, len(listed))
+	for _, u := range listed {
 		items = append(items, toUserResponse(u))
 	}
 	render.JSON(w, r, UserListResponse{
@@ -111,7 +135,7 @@ type createUserResponse struct {
 //	@Failure		403
 //	@Failure		409
 //	@Router			/users [post]
-func (h *usersHandler) Create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if _, ok := requireAdmin(h.ident, w, r); !ok {
 		return
 	}
@@ -135,6 +159,68 @@ func (h *usersHandler) Create(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, createUserResponse{User: toUserResponse(*u), Password: password})
 }
 
+// Update godoc
+//
+//	@Summary		Update user
+//	@Description	Changes login name, profile and roles. The password is unchanged. Requires the admin role.
+//	@Tags			identity
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		string			true	"user id"
+//	@Success		200	{object}	UserResponse
+//	@Failure		400
+//	@Failure		401
+//	@Failure		403
+//	@Failure		404
+//	@Failure		409
+//	@Router			/users/{id} [put]
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireAdmin(h.ident, w, r); !ok {
+		return
+	}
+	var body createUserBody
+	if err := httputils.Decode(r, &body); err != nil {
+		httputils.Err(w, r, err)
+		return
+	}
+	u, err := h.ident.UpdateUser(r.Context(), chi.URLParam(r, "id"), identity.UserPatch{
+		Username:  body.Username,
+		FirstName: body.FirstName,
+		LastName:  body.LastName,
+		Email:     body.Email,
+		Roles:     body.Roles,
+	})
+	if err != nil {
+		writeUserError(w, r, err)
+		return
+	}
+	render.JSON(w, r, toUserResponse(*u))
+}
+
+// ResetPassword godoc
+//
+//	@Summary		Reset user password
+//	@Description	Sets a new one-time password and requires a change at the next login. Requires the admin role.
+//	@Tags			identity
+//	@Produce		json
+//	@Param			id	path		string	true	"user id"
+//	@Success		200	{object}	createUserResponse
+//	@Failure		401
+//	@Failure		403
+//	@Failure		404
+//	@Router			/users/{id}/password-reset [post]
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireAdmin(h.ident, w, r); !ok {
+		return
+	}
+	u, password, err := h.ident.ResetPassword(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeUserError(w, r, err)
+		return
+	}
+	render.JSON(w, r, createUserResponse{User: toUserResponse(*u), Password: password})
+}
+
 // Delete godoc
 //
 //	@Summary		Delete user
@@ -147,7 +233,7 @@ func (h *usersHandler) Create(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404
 //	@Failure		409
 //	@Router			/users/{id} [delete]
-func (h *usersHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdmin(h.ident, w, r)
 	if !ok {
 		return
@@ -208,4 +294,31 @@ func queryPositive(r *http.Request, name string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func currentUser(ident identityService, w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
+	token, claims, err := auth.FromContext(r.Context())
+	if err != nil || token == nil || !token.IsValid {
+		httputils.Err(w, r, serror.Unauthorized(err, "unauthorized", "login required"))
+		return nil, false
+	}
+	sub, _ := claims["sub"].(string)
+	u, err := ident.GetByID(r.Context(), sub)
+	if err != nil {
+		httputils.Err(w, r, serror.Unauthorized(err, "unauthorized", "unknown user"))
+		return nil, false
+	}
+	return u, true
+}
+
+func requireAdmin(ident identityService, w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
+	u, ok := currentUser(ident, w, r)
+	if !ok {
+		return nil, false
+	}
+	if !identity.HasRole(u, identity.RoleAdmin) {
+		httputils.Err(w, r, serror.Forbidden(errors.New("admin role required"), "forbidden", "admin role required"))
+		return nil, false
+	}
+	return u, true
 }

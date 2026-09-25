@@ -261,8 +261,9 @@ func (r *Repo) Update(ctx context.Context, user identity.User) error {
 		must = 1
 	}
 	res, err := r.db.ExecContext(ctx, `
-UPDATE users SET password_hash = ?, roles = ?, must_change_password = ?, updated_at = ?
+UPDATE users SET username = ?, first_name = ?, last_name = ?, email = ?, password_hash = ?, roles = ?, must_change_password = ?, updated_at = ?
 WHERE id = ?`,
+		user.Username, user.FirstName, user.LastName, user.Email,
 		user.PasswordHash, string(rolesJSON), must, user.UpdatedAt.UTC().Format(time.RFC3339), user.ID,
 	)
 	if err != nil {

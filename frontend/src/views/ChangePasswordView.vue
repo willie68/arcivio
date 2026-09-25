@@ -31,8 +31,12 @@ async function submit() {
       await startAuthorization();
       return;
     }
-    if (msg.includes("old password") || msg.includes("invalid-password")) {
+    if (msg.includes("old password is wrong")) {
       error.value = t("changePasswordLoggedIn.wrongOld");
+    } else if (msg.includes("does not meet") || msg.includes("too short")) {
+      error.value = t("changePassword.tooWeak");
+    } else if (msg.includes("differ") || msg.includes("same password")) {
+      error.value = t("changePassword.same");
     } else {
       error.value = msg || t("changePassword.failed");
     }
@@ -45,6 +49,7 @@ async function submit() {
 <template>
   <section class="page">
     <p class="lead">{{ t("changePasswordLoggedIn.intro") }}</p>
+    <p class="policy">{{ t("changePassword.policy") }}</p>
     <form class="form" @submit.prevent="submit">
       <label>
         {{ t("changePassword.current") }}
@@ -69,9 +74,13 @@ async function submit() {
 .page {
   max-width: 22rem;
 }
-.lead {
+.lead,
+.policy {
   color: #5b6570;
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
+}
+.policy {
+  margin-bottom: 1rem;
 }
 .form {
   display: grid;

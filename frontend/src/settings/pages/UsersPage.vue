@@ -9,7 +9,9 @@ import {
   createUser,
   deleteUser,
   listUsers,
+  resetUserPassword,
   startAuthorization,
+  updateUser,
   type SettingsUser,
 } from "../../auth/oidc";
 import SettingsPage from "../SettingsPage.vue";
@@ -39,6 +41,14 @@ const form = ref(emptyForm());
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
+
+const editOpen = ref(false);
+const editing = ref(false);
+const resetting = ref(false);
+const editId = ref("");
+const editError = ref("");
+const editSaved = ref("");
+const resetPassword = ref("");
 
 let filterTimer = 0;
 
@@ -139,6 +149,11 @@ function onPage(event: DataTablePageEvent) {
   void load();
 }
 
+function onRowDoubleClick(event: { data: SettingsUser }) {
+  selected.value = [event.data];
+  openEdit();
+}
+
 function onSort(event: DataTableSortEvent) {
   sortField.value = typeof event.sortField === "string" && event.sortField ? event.sortField : "username";
   sortOrder.value = event.sortOrder === -1 ? -1 : 1;
@@ -205,6 +220,72 @@ async function submitCreate() {
   }
 }
 
+function openEdit() {
+  const user = selected.value[0];
+  if (!user || selected.value.length !== 1) {
+    return;
+  }
+  form.value = {
+    username: user.username,
+    firstName: user.firstName ?? "",
+    lastName: user.lastName ?? "",
+    email: user.email ?? "",
+    roles: [...user.roles],
+  };
+  editId.value = user.id;
+  editError.value = "";
+  editSaved.value = "";
+  resetPassword.value = "";
+  editOpen.value = true;
+}
+
+async function submitEdit() {
+  editError.value = "";
+  editSaved.value = "";
+  if (!form.value.username.trim() || form.value.roles.length === 0) {
+    editError.value = form.value.roles.length === 0 ? t("settings.users.rolesRequired") : t("settings.users.invalidUser");
+    return;
+  }
+  editing.value = true;
+  try {
+    await updateUser(editId.value, {
+      username: form.value.username.trim(),
+      firstName: form.value.firstName.trim(),
+      lastName: form.value.lastName.trim(),
+      email: form.value.email.trim(),
+      roles: form.value.roles,
+    });
+    editOpen.value = false;
+    await load();
+  } catch (e) {
+    if (e instanceof Error && e.message === "not authenticated") {
+      await startAuthorization();
+      return;
+    }
+    editError.value = actionMessage(e instanceof Error ? e.message : "");
+  } finally {
+    editing.value = false;
+  }
+}
+
+async function submitReset() {
+  editError.value = "";
+  resetting.value = true;
+  try {
+    const result = await resetUserPassword(editId.value);
+    resetPassword.value = result.password;
+    await load();
+  } catch (e) {
+    if (e instanceof Error && e.message === "not authenticated") {
+      await startAuthorization();
+      return;
+    }
+    editError.value = actionMessage(e instanceof Error ? e.message : "");
+  } finally {
+    resetting.value = false;
+  }
+}
+
 function openDelete() {
   if (!selected.value.length) {
     return;
@@ -261,6 +342,17 @@ onMounted(() => {
           v-tooltip.bottom="t('settings.users.create')"
           @click="openCreate"
         />
+        <span v-tooltip.bottom="selected.length === 1 ? t('settings.users.edit') : t('settings.users.editNeedSelection')">
+          <Button
+            type="button"
+            icon="pi pi-user-edit"
+            text
+            rounded
+            :aria-label="t('settings.users.edit')"
+            :disabled="selected.length !== 1"
+            @click="openEdit"
+          />
+        </span>
         <span v-tooltip.bottom="selected.length ? t('settings.users.delete') : t('settings.users.deleteNeedSelection')">
           <Button
             type="button"
@@ -294,6 +386,7 @@ onMounted(() => {
       size="small"
       @page="onPage"
       @sort="onSort"
+      @row-dblclick="onRowDoubleClick"
     >
       <template #empty>{{ t("settings.users.empty") }}</template>
       <Column selection-mode="multiple" header-style="width: 3rem" />
@@ -363,6 +456,50 @@ onMounted(() => {
       </template>
     </Dialog>
 
+    <Dialog v-model:visible="editOpen" modal :header="t('settings.users.editTitle')" :style="{ width: '26rem' }">
+      <form class="form" @submit.prevent="submitEdit">
+        <label>
+          {{ t("settings.users.username") }}
+          <input v-model="form.username" required autocomplete="off" />
+        </label>
+        <label>
+          {{ t("settings.users.firstName") }}
+          <input v-model="form.firstName" autocomplete="off" />
+        </label>
+        <label>
+          {{ t("settings.users.lastName") }}
+          <input v-model="form.lastName" autocomplete="off" />
+        </label>
+        <label>
+          {{ t("settings.users.email") }}
+          <input v-model="form.email" type="email" autocomplete="off" />
+        </label>
+        <fieldset>
+          <legend>{{ t("settings.users.roles") }}</legend>
+          <label v-for="role in roles" :key="role" class="check">
+            <input
+              type="checkbox"
+              :checked="form.roles.includes(role)"
+              @change="toggleRole(role, ($event.target as HTMLInputElement).checked)"
+            />
+            {{ roleLabel(role) }}
+          </label>
+        </fieldset>
+        <p v-if="editSaved" class="ok">{{ editSaved }}</p>
+        <p v-if="resetPassword" class="hint">{{ t("settings.users.passwordHint") }}</p>
+        <p v-if="resetPassword" class="password">
+          <span>{{ t("settings.users.passwordOnce") }}</span>
+          <code>{{ resetPassword }}</code>
+        </p>
+        <p v-if="editError" class="error">{{ editError }}</p>
+      </form>
+      <template #footer>
+        <Button type="button" :label="t('settings.users.resetPassword')" text :loading="resetting" @click="submitReset" />
+        <Button type="button" :label="t('settings.users.cancel')" text @click="editOpen = false" />
+        <Button type="button" :label="t('settings.users.editSubmit')" :loading="editing" @click="submitEdit" />
+      </template>
+    </Dialog>
+
     <Dialog v-model:visible="deleteOpen" modal :header="t('settings.users.deleteTitle')" :style="{ width: '24rem' }">
       <p>{{ t("settings.users.deleteConfirm") }}</p>
       <ul>
@@ -405,6 +542,10 @@ onMounted(() => {
 .error {
   margin: 0 0 0.75rem;
   color: #9b2c2c;
+}
+.ok {
+  margin: 0;
+  color: #1b7f3a;
 }
 .form {
   display: grid;

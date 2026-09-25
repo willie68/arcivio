@@ -13,7 +13,7 @@ var logger = logging.New("identity")
 // Provide wires the identity service from UserStore and bootstraps the first admin.
 func Provide(inj do.Injector) error {
 	users := do.MustInvokeAs[UserStore](inj)
-	svc := New(users, NewArgon2Hasher())
+	svc := New(users, newArgon2Hasher())
 	created, err := svc.Bootstrap(context.Background())
 	if err != nil {
 		return fmt.Errorf("identity bootstrap: %w", err)

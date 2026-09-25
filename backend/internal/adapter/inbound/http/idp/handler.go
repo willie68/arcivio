@@ -1,6 +1,7 @@
 package idp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,21 +9,33 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
-	"github.com/willie68/arcivio/internal/domain/idp"
+	"github.com/samber/do/v2"
 	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/idp"
 	"github.com/willie68/arcivio/internal/shared/serror"
 	"github.com/willie68/arcivio/internal/shared/utils/httputils"
 )
 
 const cookieMaxAge = 600
 
+type idpProvider interface {
+	Discovery() map[string]any
+	JWKS() map[string]any
+	StartAuthorization(req idp.AuthorizationRequest) (string, string, error)
+	CompleteLogin(ctx context.Context, requestID, username, password string) (idp.LoginResult, error)
+	CompletePasswordChange(ctx context.Context, requestID, oldPassword, newPassword string) (idp.LoginResult, error)
+	ExchangeToken(ctx context.Context, req idp.TokenRequest) (*idp.TokenResponse, error)
+	UserInfoFromAccessToken(ctx context.Context, token string) (*idp.UserInfo, error)
+}
+
 // Handler exposes the internal OIDC IdP under /auth.
 type Handler struct {
-	idp *idp.Provider
+	idp idpProvider
 }
 
 // New creates the HTTP adapter for the IdP.
-func New(p *idp.Provider) *Handler {
+func New(inj do.Injector) *Handler {
+	p := do.MustInvokeAs[idpProvider](inj)
 	return &Handler{idp: p}
 }
 

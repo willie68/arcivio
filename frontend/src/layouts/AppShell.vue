@@ -164,8 +164,8 @@ onUnmounted(() => {
       <a class="copy" :href="readmeUrl" target="_blank" rel="noopener noreferrer">{{ t("shell.copyright") }}</a>
       <a class="repo" :href="repoUrl" target="_blank" rel="noopener noreferrer">{{ t("shell.github") }}</a>
     </footer>
-    <Dialog v-model:visible="accountVisible" modal :header="t('account.me')" :style="{ width: '22rem' }">
-      <AccountView v-if="accountVisible" />
+    <Dialog v-model:visible="accountVisible" modal :header="t('account.me')" :style="{ width: '26rem' }">
+      <AccountView v-if="accountVisible" @close="accountVisible = false" />
     </Dialog>
     <Dialog v-model:visible="infoVisible" modal :header="t('account.info')" :style="{ width: '22rem' }">
       <p class="info-title">{{ t("brand.name") }}</p>

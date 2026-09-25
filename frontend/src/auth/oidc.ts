@@ -236,8 +236,26 @@ export async function createUser(input: NewSettingsUser): Promise<{ user: Settin
   });
 }
 
+export async function updateUser(id: string, input: NewSettingsUser): Promise<SettingsUser> {
+  return apiJson(`/api/v1/users/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function resetUserPassword(id: string): Promise<{ user: SettingsUser; password: string }> {
+  return apiJson(`/api/v1/users/${encodeURIComponent(id)}/password-reset`, { method: "POST" });
+}
+
 export async function deleteUser(id: string): Promise<void> {
   await apiJson(`/api/v1/users/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function updateProfile(input: { firstName: string; lastName: string; email: string }): Promise<Me> {
+  return apiJson("/api/v1/me", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 async function apiJson(path: string, init: RequestInit): Promise<any> {

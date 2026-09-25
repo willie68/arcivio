@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/willie68/arcivio/internal/config"
 )
 
@@ -90,23 +91,16 @@ func TestDecodeJWTErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-type stubVerifier struct {
-	claims map[string]any
-	err    error
-}
-
-func (s stubVerifier) VerifyAccessToken(string) (map[string]any, error) {
-	return s.claims, s.err
-}
-
 func TestValidateUsesVerifier(t *testing.T) {
 	jt, err := DecodeJWT(testToken)
 	assert.NoError(t, err)
 	assert.Error(t, jt.Validate(&JWTAuth{Config: JWTAuthConfig{Validate: true}}))
 
+	verifier := newMockTokenVerifier(t)
+	verifier.EXPECT().VerifyAccessToken(mock.Anything).Return(map[string]any{"sub": "u1"}, nil)
 	err = jt.Validate(&JWTAuth{
 		Config:   JWTAuthConfig{Validate: true},
-		Verifier: stubVerifier{claims: map[string]any{"sub": "u1"}},
+		Verifier: verifier,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, "u1", jt.Payload["sub"])

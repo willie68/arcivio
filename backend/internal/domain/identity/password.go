@@ -18,8 +18,8 @@ const (
 	argon2SaltLen = 16
 )
 
-// Argon2Hasher implements PasswordHasher with Argon2id (PHC encoded).
-type Argon2Hasher struct {
+// argon2Hasher implements PasswordHasher with Argon2id (PHC encoded).
+type argon2Hasher struct {
 	time    uint32
 	memory  uint32
 	threads uint8
@@ -27,9 +27,9 @@ type Argon2Hasher struct {
 	saltLen uint32
 }
 
-// NewArgon2Hasher returns a hasher with OWASP-aligned Argon2id parameters.
-func NewArgon2Hasher() *Argon2Hasher {
-	return &Argon2Hasher{
+// newArgon2Hasher returns a hasher with OWASP-aligned Argon2id parameters.
+func newArgon2Hasher() *argon2Hasher {
+	return &argon2Hasher{
 		time:    argon2Time,
 		memory:  argon2Memory,
 		threads: argon2Threads,
@@ -39,8 +39,8 @@ func NewArgon2Hasher() *Argon2Hasher {
 }
 
 // NewArgon2HasherWithParams is intended for tests with cheaper parameters.
-func NewArgon2HasherWithParams(time, memory uint32, threads uint8, keyLen, saltLen uint32) *Argon2Hasher {
-	return &Argon2Hasher{
+func NewArgon2HasherWithParams(time, memory uint32, threads uint8, keyLen, saltLen uint32) *argon2Hasher {
+	return &argon2Hasher{
 		time:    time,
 		memory:  memory,
 		threads: threads,
@@ -50,7 +50,7 @@ func NewArgon2HasherWithParams(time, memory uint32, threads uint8, keyLen, saltL
 }
 
 // Hash returns a PHC-encoded Argon2id hash. The password is never stored as given.
-func (h *Argon2Hasher) Hash(password string) (string, error) {
+func (h *argon2Hasher) Hash(password string) (string, error) {
 	salt := make([]byte, h.saltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("generate salt: %w", err)
@@ -60,7 +60,7 @@ func (h *Argon2Hasher) Hash(password string) (string, error) {
 }
 
 // Verify checks password against a PHC-encoded Argon2id hash.
-func (h *Argon2Hasher) Verify(encodedHash, password string) error {
+func (h *argon2Hasher) Verify(encodedHash, password string) error {
 	time, memory, threads, salt, hash, err := decodeArgon2(encodedHash)
 	if err != nil {
 		return ErrInvalidCredentials

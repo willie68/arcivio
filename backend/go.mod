@@ -18,7 +18,7 @@ require (
 	github.com/samber/slog-graylog/v2 v2.7.4
 	github.com/samber/slog-multi v1.7.1
 	github.com/spf13/pflag v1.0.10
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
 	github.com/undefinedlabs/go-mpatch v1.0.7
@@ -66,6 +66,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/samber/go-type-to-string v1.8.0 // indirect
 	github.com/samber/lo v1.52.0 // indirect
+	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.45.0 // indirect

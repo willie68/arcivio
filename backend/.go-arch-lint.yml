@@ -1,0 +1,58 @@
+version: 3
+workdir: .
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+  - "^.*_mock\\.go$"
+  - "^.*testdata.*\\.go$"
+
+components:
+  main:
+    in: cmd/service
+  di:
+    in: internal/bootstrap
+  config:
+    in: internal/config
+  handler:
+    in: internal/adapter/inbound/**
+  domain:
+    in: internal/domain/**
+  infrastructure:
+    in:
+      - internal/infrastructure/**
+  client:
+    in: internal/adapter/outbound/**
+  common:
+    in: internal/shared/**
+  frontend:
+    in: pkg/web/**
+
+commonComponents:
+  - config
+  - common
+
+deps:
+  main:
+    anyProjectDeps: true
+    anyVendorDeps: true
+  di:
+    anyProjectDeps: true
+    anyVendorDeps: true
+  handler:
+    mayDependOn:
+      - infrastructure
+    anyVendorDeps: true
+  domain:
+    anyProjectDeps: true
+    anyVendorDeps: true
+  infrastructure:
+    anyVendorDeps: true
+  client:
+    anyProjectDeps: true
+    anyVendorDeps: true
+  config:
+    anyProjectDeps: true
+    anyVendorDeps: true

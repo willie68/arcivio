@@ -2,7 +2,6 @@ package idp
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -10,15 +9,13 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
-	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/willie68/arcivio/internal/domain/identity"
 	domainidp "github.com/willie68/arcivio/internal/domain/idp"
 )
 
@@ -30,23 +27,39 @@ func pkce() (verifier, challenge string) {
 }
 
 func TestHTTPAuthorizeLoginToken(t *testing.T) {
-	st := newMemStore()
-	ident := identity.New(st, identity.NewArgon2HasherWithParams(1, 8*1024, 1, 32, 16))
-	_, err := ident.Bootstrap(context.Background())
-	require.NoError(t, err)
-
-	prov, err := domainidp.New(domainidp.Config{
-		Issuer:       "https://arcivio.test/auth",
+	prov := newMockIdpProvider(t)
+	verifier, challenge := pkce()
+	prov.EXPECT().Discovery().Return(map[string]any{
+		"authorization_endpoint": "https://arcivio.test/auth/authorize",
+	}).Once()
+	prov.EXPECT().StartAuthorization(domainidp.AuthorizationRequest{
+		ClientID:            domainidp.DefaultClientID,
+		RedirectURI:         "https://arcivio.test/callback",
+		ResponseType:        "code",
+		Scope:               "openid",
+		State:               "s1",
+		CodeChallenge:       challenge,
+		CodeChallengeMethod: "S256",
+	}).Return("req-1", "/login", nil).Once()
+	prov.EXPECT().CompleteLogin(mock.Anything, "req-1", "admin", "admin").
+		Return(domainidp.LoginResult{Status: domainidp.LoginPasswordChange}, nil).Once()
+	prov.EXPECT().CompletePasswordChange(mock.Anything, "req-1", "admin", "new-secret").
+		Return(domainidp.LoginResult{
+			Status:     domainidp.LoginOK,
+			RedirectTo: "https://arcivio.test/callback?code=auth-code&state=s1",
+		}, nil).Once()
+	prov.EXPECT().ExchangeToken(mock.Anything, domainidp.TokenRequest{
+		GrantType:    "authorization_code",
+		Code:         "auth-code",
+		RedirectURI:  "https://arcivio.test/callback",
 		ClientID:     domainidp.DefaultClientID,
-		Audience:     domainidp.DefaultClientID,
-		RedirectURIs: []string{"https://arcivio.test/callback"},
-		LoginPath:    "/login",
-	}, ident)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = prov.Shutdown() })
+		CodeVerifier: verifier,
+	}).Return(&domainidp.TokenResponse{AccessToken: "access-token", TokenType: "Bearer"}, nil).Once()
+	prov.EXPECT().UserInfoFromAccessToken(mock.Anything, "access-token").
+		Return(&domainidp.UserInfo{PreferredUsername: "admin"}, nil).Once()
 
+	h := &Handler{idp: prov}
 	r := chi.NewRouter()
-	h := New(prov)
 	r.Mount(h.Routes())
 	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -70,7 +83,6 @@ func TestHTTPAuthorizeLoginToken(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"authorization_endpoint"`)
 
-	verifier, challenge := pkce()
 	q := url.Values{
 		"client_id":             {domainidp.DefaultClientID},
 		"redirect_uri":          {"https://arcivio.test/callback"},
@@ -131,122 +143,21 @@ func TestHTTPAuthorizeLoginToken(t *testing.T) {
 }
 
 func TestAuthorizeRejectsMissingPKCE(t *testing.T) {
-	st := newMemStore()
-	ident := identity.New(st, identity.NewArgon2HasherWithParams(1, 8*1024, 1, 32, 16))
-	_, err := ident.Bootstrap(context.Background())
-	require.NoError(t, err)
-	prov, err := domainidp.New(domainidp.Config{
-		Issuer:       "https://arcivio.test/auth",
+	prov := newMockIdpProvider(t)
+	prov.EXPECT().StartAuthorization(domainidp.AuthorizationRequest{
 		ClientID:     domainidp.DefaultClientID,
-		Audience:     domainidp.DefaultClientID,
-		RedirectURIs: []string{"https://arcivio.test/callback"},
-	}, ident)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = prov.Shutdown() })
+		RedirectURI:  "https://arcivio.test/callback",
+		ResponseType: "code",
+		Scope:        "openid",
+	}).Return("", "", domainidp.ErrInvalidRequest).Once()
 
-	h := New(prov)
+	h := &Handler{idp: prov}
 	router := chi.NewRouter()
 	router.Mount(h.Routes())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/auth/authorize?client_id="+domainidp.DefaultClientID+"&redirect_uri=https://arcivio.test/callback&response_type=code&scope=openid", nil)
 	router.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-type memStore struct {
-	users map[string]identity.User
-}
-
-func newMemStore() *memStore {
-	return &memStore{users: make(map[string]identity.User)}
-}
-
-func (m *memStore) Count(_ context.Context) (int, error) { return len(m.users), nil }
-
-func (m *memStore) GetByID(_ context.Context, id string) (*identity.User, error) {
-	for _, u := range m.users {
-		if u.ID == id {
-			cp := u
-			return &cp, nil
-		}
-	}
-	return nil, identity.ErrUserNotFound
-}
-
-func (m *memStore) GetByUsername(_ context.Context, username string) (*identity.User, error) {
-	u, ok := m.users[username]
-	if !ok {
-		return nil, identity.ErrUserNotFound
-	}
-	cp := u
-	return &cp, nil
-}
-
-func (m *memStore) Create(_ context.Context, user identity.User) error {
-	m.users[user.Username] = user
-	return nil
-}
-
-func (m *memStore) Update(_ context.Context, user identity.User) error {
-	m.users[user.Username] = user
-	return nil
-}
-
-func (m *memStore) Delete(_ context.Context, id string) error {
-	for key, u := range m.users {
-		if u.ID == id {
-			delete(m.users, key)
-			return nil
-		}
-	}
-	return identity.ErrUserNotFound
-}
-
-func (m *memStore) CountWithRole(_ context.Context, role string) (int, error) {
-	n := 0
-	for _, u := range m.users {
-		if identity.HasRole(&u, role) {
-			n++
-		}
-	}
-	return n, nil
-}
-
-func (m *memStore) List(_ context.Context, offset, limit int, sortField string, desc bool, prefix string) ([]identity.User, int, error) {
-	all := make([]identity.User, 0, len(m.users))
-	for _, u := range m.users {
-		if identity.MatchPrefix(u, prefix) {
-			all = append(all, u)
-		}
-	}
-	sort.Slice(all, func(i, j int) bool {
-		left, right := strings.ToLower(all[i].Username), strings.ToLower(all[j].Username)
-		if desc && sortField == identity.SortUsername {
-			return left > right
-		}
-		return left < right
-	})
-	total := len(all)
-	if offset > total {
-		offset = total
-	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
-	return append([]identity.User(nil), all[offset:end]...), total, nil
-}
-
-func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {
-	for key, u := range m.users {
-		if u.ID == userID {
-			t := at
-			u.LastLogin = &t
-			m.users[key] = u
-			return nil
-		}
-	}
-	return identity.ErrUserNotFound
 }
 
 func TestCookieSecureFollowsForwardedProto(t *testing.T) {

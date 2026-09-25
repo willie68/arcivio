@@ -27,7 +27,7 @@ type Service struct {
 // New creates the identity service.
 func New(users UserStore, hasher PasswordHasher) *Service {
 	if hasher == nil {
-		hasher = NewArgon2Hasher()
+		hasher = newArgon2Hasher()
 	}
 	return &Service{
 		users:  users,
@@ -147,15 +147,6 @@ func (s *Service) ChangePassword(ctx context.Context, userID, oldPassword, newPa
 	return u, nil
 }
 
-// NewUser is the input for creating a local account.
-type NewUser struct {
-	Username  string
-	FirstName string
-	LastName  string
-	Email     string
-	Roles     []string
-}
-
 // CreateUser creates a local user with a random one-time password.
 // The plaintext password is returned once and not persisted.
 // Username is the unique login name.
@@ -225,6 +216,107 @@ func (s *Service) DeleteUser(ctx context.Context, actorID, userID string) error 
 		}
 	}
 	return s.users.Delete(ctx, userID)
+}
+
+// UpdateUser changes login name, profile and roles. The password stays unchanged.
+// Removing the admin role from the last admin is refused.
+func (s *Service) UpdateUser(ctx context.Context, userID string, in UserPatch) (*User, error) {
+	if userID == "" {
+		return nil, ErrUserNotFound
+	}
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	username := normalizeUsername(in.Username)
+	if username == "" {
+		return nil, fmt.Errorf("username required")
+	}
+	email, err := normalizeEmail(in.Email)
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidateRoles(in.Roles); err != nil {
+		return nil, err
+	}
+	if username != u.Username {
+		existing, err := s.users.GetByUsername(ctx, username)
+		if err == nil && existing != nil && existing.ID != u.ID {
+			return nil, ErrAlreadyExists
+		}
+		if err != nil && !errors.Is(err, ErrUserNotFound) {
+			return nil, err
+		}
+	}
+	if HasRole(u, RoleAdmin) && !HasRole(&User{Roles: in.Roles}, RoleAdmin) {
+		n, err := s.users.CountWithRole(ctx, RoleAdmin)
+		if err != nil {
+			return nil, err
+		}
+		if n <= 1 {
+			return nil, ErrLastAdmin
+		}
+	}
+	u.Username = username
+	u.FirstName = strings.TrimSpace(in.FirstName)
+	u.LastName = strings.TrimSpace(in.LastName)
+	u.Email = email
+	u.Roles = append([]string(nil), in.Roles...)
+	u.UpdatedAt = s.now().UTC()
+	if err := s.users.Update(ctx, *u); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// UpdateProfile changes first name, last name and email of the signed-in user.
+func (s *Service) UpdateProfile(ctx context.Context, userID string, in ProfilePatch) (*User, error) {
+	if userID == "" {
+		return nil, ErrUserNotFound
+	}
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	email, err := normalizeEmail(in.Email)
+	if err != nil {
+		return nil, err
+	}
+	u.FirstName = strings.TrimSpace(in.FirstName)
+	u.LastName = strings.TrimSpace(in.LastName)
+	u.Email = email
+	u.UpdatedAt = s.now().UTC()
+	if err := s.users.Update(ctx, *u); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// ResetPassword stores a new random password and requires a change at the next login.
+// The plaintext password is returned once and not persisted.
+func (s *Service) ResetPassword(ctx context.Context, userID string) (*User, string, error) {
+	if userID == "" {
+		return nil, "", ErrUserNotFound
+	}
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, "", err
+	}
+	plain, err := randomSecret(18)
+	if err != nil {
+		return nil, "", err
+	}
+	hash, err := s.hasher.Hash(plain)
+	if err != nil {
+		return nil, "", err
+	}
+	u.PasswordHash = hash
+	u.MustChangePassword = true
+	u.UpdatedAt = s.now().UTC()
+	if err := s.users.Update(ctx, *u); err != nil {
+		return nil, "", err
+	}
+	return u, plain, nil
 }
 
 func normalizeEmail(email string) (string, error) {

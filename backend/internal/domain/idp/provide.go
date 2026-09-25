@@ -5,7 +5,6 @@ import (
 
 	"github.com/samber/do/v2"
 	"github.com/willie68/arcivio/internal/config"
-	"github.com/willie68/arcivio/internal/domain/identity"
 	"github.com/willie68/arcivio/internal/infrastructure/logging"
 )
 
@@ -14,7 +13,7 @@ var logger = logging.New("idp")
 // Provide wires the internal OIDC IdP.
 func Provide(inj do.Injector) error {
 	cfg := do.MustInvoke[config.Config](inj)
-	ident := do.MustInvoke[*identity.Service](inj)
+	ident := do.MustInvokeAs[identityService](inj)
 	prov, err := New(ConfigFrom(cfg), ident)
 	if err != nil {
 		return fmt.Errorf("idp: %w", err)

@@ -2,7 +2,6 @@ package idp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -12,90 +11,22 @@ import (
 	"github.com/willie68/arcivio/internal/shared/utils/ttlcache"
 )
 
-// Protocol errors (mapped to OIDC / HTTP by the inbound adapter).
-var (
-	ErrInvalidRequest      = errors.New("invalid_request")
-	ErrInvalidClient       = errors.New("invalid_client")
-	ErrInvalidGrant        = errors.New("invalid_grant")
-	ErrUnsupportedGrant    = errors.New("unsupported_grant_type")
-	ErrLoginRequired       = errors.New("login_required")
-	ErrPasswordChange      = errors.New("password_change_required")
-	ErrUnauthorizedClient  = errors.New("unauthorized_client")
-	ErrInvalidToken        = errors.New("invalid_token")
-)
-
-// AuthorizationRequest is an OIDC authorize query (code + PKCE).
-type AuthorizationRequest struct {
-	ClientID            string
-	RedirectURI         string
-	ResponseType        string
-	Scope               string
-	State               string
-	Nonce               string
-	CodeChallenge       string
-	CodeChallengeMethod string
-}
-
-// LoginResult is returned after username/password (and optional password change).
-type LoginResult struct {
-	Status     string `json:"status"`
-	RedirectTo string `json:"redirectTo,omitempty"`
-}
-
-const (
-	LoginOK             = "ok"
-	LoginPasswordChange = "password_change_required"
-)
-
-// TokenRequest is an OIDC token request (authorization_code + PKCE).
-type TokenRequest struct {
-	GrantType    string
-	Code         string
-	RedirectURI  string
-	ClientID     string
-	CodeVerifier string
-}
-
-// TokenResponse is a successful token endpoint payload.
-type TokenResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
-	IDToken     string `json:"id_token"`
-	Scope       string `json:"scope,omitempty"`
-}
-
-// UserInfo is the OIDC userinfo payload.
-type UserInfo struct {
-	Subject            string   `json:"sub"`
-	PreferredUsername  string   `json:"preferred_username"`
-	Roles              []string `json:"roles"`
-	MustChangePassword bool     `json:"mustChangePassword"`
-}
-
-type authRequest struct {
-	ID                  string
-	ClientID            string
-	RedirectURI         string
-	Scope               string
-	State               string
-	Nonce               string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	UserID              string
-	PasswordChangedOK   bool
-}
-
-type authCode struct {
-	Code        string
-	Request     authRequest
-	ExpiresAt   time.Time
+type identityService interface {
+	ListUsers(ctx context.Context, offset, limit int, sort string, desc bool, prefix string) ([]identity.User, int, error)
+	GetByID(ctx context.Context, id string) (*identity.User, error)
+	CreateUser(ctx context.Context, in identity.NewUser) (*identity.User, string, error)
+	UpdateUser(ctx context.Context, userID string, in identity.UserPatch) (*identity.User, error)
+	ResetPassword(ctx context.Context, userID string) (*identity.User, string, error)
+	DeleteUser(ctx context.Context, actorID, userID string) error
+	ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) (*identity.User, error)
+	UpdateProfile(ctx context.Context, userID string, in identity.ProfilePatch) (*identity.User, error)
+	Authenticate(ctx context.Context, username, password string) (*identity.User, error)
 }
 
 // Provider is the internal OIDC IdP (authorization code + PKCE).
 type Provider struct {
 	cfg      Config
-	ident    *identity.Service
+	ident    identityService
 	key      *rsaHolder
 	requests *ttlcache.Cache[string, authRequest]
 	codes    *ttlcache.Cache[string, authCode]
@@ -110,7 +41,7 @@ type rsaHolder struct {
 }
 
 // New constructs the IdP, loading or creating the RSA signing key.
-func New(cfg Config, ident *identity.Service) (*Provider, error) {
+func New(cfg Config, ident identityService) (*Provider, error) {
 	if ident == nil {
 		return nil, fmt.Errorf("identity service is required")
 	}
@@ -351,16 +282,16 @@ func (p *Provider) mintTokens(u *identity.User, ar authRequest) (*TokenResponse,
 	idExp := now.Add(p.cfg.IDTokenTTL)
 
 	accessClaims := map[string]any{
-		"iss":                 p.cfg.Issuer,
-		"sub":                 u.ID,
-		"aud":                 p.cfg.Audience,
-		"iat":                 unixTime(now),
-		"exp":                 unixTime(accessExp),
-		"token_use":           "access",
-		"scope":               ar.Scope,
-		"preferred_username":  u.Username,
-		"roles":               u.Roles,
-		"mustChangePassword":  false,
+		"iss":                p.cfg.Issuer,
+		"sub":                u.ID,
+		"aud":                p.cfg.Audience,
+		"iat":                unixTime(now),
+		"exp":                unixTime(accessExp),
+		"token_use":          "access",
+		"scope":              ar.Scope,
+		"preferred_username": u.Username,
+		"roles":              u.Roles,
+		"mustChangePassword": false,
 	}
 	idClaims := map[string]any{
 		"iss":                p.cfg.Issuer,

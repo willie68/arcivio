@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	idphandler "github.com/willie68/arcivio/internal/adapter/inbound/http/idp"
+	usershandler "github.com/willie68/arcivio/internal/adapter/inbound/http/users"
 	"github.com/willie68/arcivio/internal/config"
 	"github.com/willie68/arcivio/internal/domain/idp"
 	"github.com/willie68/arcivio/internal/infrastructure/health"
@@ -67,11 +68,7 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 	}
 	httputils.FileServer(router, "/client", http.FS(clientFS))
 
-	idpProv, err := do.Invoke[*idp.Provider](inj)
-	if err != nil {
-		return nil, fmt.Errorf("internal idp is required: %w", err)
-	}
-	router.Mount(idphandler.New(idpProv).Routes())
+	router.Mount(idphandler.New(inj).Routes())
 
 	var jwtErr error
 	router.Route(BaseURL, func(r chi.Router) {
@@ -83,11 +80,9 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 		}
 		me := newMeHandler(inj)
 		r.Get("/me", me.GetMe)
+		r.Patch("/me", me.UpdateProfile)
 		r.Post("/me/password", me.ChangePassword)
-		users := newUsersHandler(inj)
-		r.Get("/users", users.List)
-		r.Post("/users", users.Create)
-		r.Delete("/users/{id}", users.Delete)
+		r.Mount(usershandler.New(inj).Routes())
 	})
 	if jwtErr != nil {
 		return nil, jwtErr

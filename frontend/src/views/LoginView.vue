@@ -15,6 +15,16 @@ const error = ref("");
 const busy = ref(false);
 const preparing = ref(false);
 
+function passwordError(message: string): string {
+  if (message.includes("does not meet") || message.includes("too short")) {
+    return t("changePassword.tooWeak");
+  }
+  if (message.includes("differ") || message.includes("same password")) {
+    return t("changePassword.same");
+  }
+  return message || t("changePassword.failed");
+}
+
 function applyResult(res: { status: string; redirectTo?: string }) {
   if (res.status === "password_change_required") {
     needChange.value = true;
@@ -71,7 +81,7 @@ async function submitChange() {
     const res = await changePassword(oldPassword.value, newPassword.value);
     applyResult(res);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : t("changePassword.failed");
+    error.value = passwordError(e instanceof Error ? e.message : "");
   } finally {
     busy.value = false;
   }
@@ -98,6 +108,7 @@ async function submitChange() {
       </form>
       <form v-else class="form" @submit.prevent="submitChange">
         <p>{{ t("changePassword.intro") }}</p>
+        <p class="hint">{{ t("changePassword.policy") }}</p>
         <label>
           {{ t("changePassword.current") }}
           <input v-model="oldPassword" type="password" autocomplete="current-password" class="native" />

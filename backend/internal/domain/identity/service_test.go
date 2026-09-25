@@ -7,128 +7,136 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-type memStore struct {
-	mu    sync.Mutex
-	users map[string]User
-}
+// userStore is the generated UserStore mock with the in-memory behaviour the service tests rely on.
+func userStore(t *testing.T) *mockUserStore {
+	t.Helper()
+	st := newMockUserStore(t)
+	users := map[string]User{}
+	var mu sync.Mutex
 
-func newMemStore() *memStore {
-	return &memStore{users: make(map[string]User)}
-}
-
-func (m *memStore) Count(_ context.Context) (int, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return len(m.users), nil
-}
-
-func (m *memStore) GetByID(_ context.Context, id string) (*User, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, u := range m.users {
-		if u.ID == id {
-			cp := u
-			return &cp, nil
+	st.EXPECT().Count(mock.Anything).RunAndReturn(func(context.Context) (int, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(users), nil
+	}).Maybe()
+	st.EXPECT().GetByID(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) (*User, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, u := range users {
+			if u.ID == id {
+				cp := u
+				return &cp, nil
+			}
 		}
-	}
-	return nil, ErrUserNotFound
-}
-
-func (m *memStore) GetByUsername(_ context.Context, username string) (*User, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	u, ok := m.users[username]
-	if !ok {
 		return nil, ErrUserNotFound
-	}
-	cp := u
-	return &cp, nil
-}
-
-func (m *memStore) Create(_ context.Context, user User) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.users[user.Username]; ok {
-		return ErrAlreadyExists
-	}
-	m.users[user.Username] = user
-	return nil
-}
-
-func (m *memStore) Update(_ context.Context, user User) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.users[user.Username]; !ok {
+	}).Maybe()
+	st.EXPECT().GetByUsername(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, username string) (*User, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		u, ok := users[username]
+		if !ok {
+			return nil, ErrUserNotFound
+		}
+		cp := u
+		return &cp, nil
+	}).Maybe()
+	st.EXPECT().Create(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, user User) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if _, ok := users[user.Username]; ok {
+			return ErrAlreadyExists
+		}
+		users[user.Username] = user
+		return nil
+	}).Maybe()
+	st.EXPECT().Update(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, user User) error {
+		mu.Lock()
+		defer mu.Unlock()
+		oldKey := ""
+		for key, existing := range users {
+			if existing.ID == user.ID {
+				oldKey = key
+				break
+			}
+		}
+		if oldKey == "" {
+			return ErrUserNotFound
+		}
+		if other, ok := users[user.Username]; ok && other.ID != user.ID {
+			return ErrAlreadyExists
+		}
+		if oldKey != user.Username {
+			delete(users, oldKey)
+		}
+		users[user.Username] = user
+		return nil
+	}).Maybe()
+	st.EXPECT().Delete(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		for key, u := range users {
+			if u.ID == id {
+				delete(users, key)
+				return nil
+			}
+		}
 		return ErrUserNotFound
-	}
-	m.users[user.Username] = user
-	return nil
-}
-
-func (m *memStore) Delete(_ context.Context, id string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for key, u := range m.users {
-		if u.ID == id {
-			delete(m.users, key)
-			return nil
+	}).Maybe()
+	st.EXPECT().CountWithRole(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, role string) (int, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		n := 0
+		for _, u := range users {
+			if HasRole(&u, role) {
+				n++
+			}
 		}
-	}
-	return ErrUserNotFound
-}
-
-func (m *memStore) CountWithRole(_ context.Context, role string) (int, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	n := 0
-	for _, u := range m.users {
-		if HasRole(&u, role) {
-			n++
+		return n, nil
+	}).Maybe()
+	st.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, offset, limit int, sortField string, desc bool, prefix string) ([]User, int, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			all := make([]User, 0, len(users))
+			for _, u := range users {
+				if MatchPrefix(u, prefix) {
+					all = append(all, u)
+				}
+			}
+			sortUsers(all, sortField, desc)
+			total := len(all)
+			if offset > total {
+				offset = total
+			}
+			end := offset + limit
+			if end > total {
+				end = total
+			}
+			return append([]User(nil), all[offset:end]...), total, nil
+		},
+	).Maybe()
+	st.EXPECT().RecordLastLogin(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, userID string, at time.Time) error {
+		mu.Lock()
+		defer mu.Unlock()
+		for key, u := range users {
+			if u.ID == userID {
+				loggedIn := at
+				u.LastLogin = &loggedIn
+				users[key] = u
+				return nil
+			}
 		}
-	}
-	return n, nil
-}
-
-func (m *memStore) List(_ context.Context, offset, limit int, sortField string, desc bool, prefix string) ([]User, int, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	all := make([]User, 0, len(m.users))
-	for _, u := range m.users {
-		if MatchPrefix(u, prefix) {
-			all = append(all, u)
-		}
-	}
-	sortUsers(all, sortField, desc)
-	total := len(all)
-	if offset > total {
-		offset = total
-	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
-	return append([]User(nil), all[offset:end]...), total, nil
-}
-
-func (m *memStore) RecordLastLogin(_ context.Context, userID string, at time.Time) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for key, u := range m.users {
-		if u.ID == userID {
-			t := at
-			u.LastLogin = &t
-			m.users[key] = u
-			return nil
-		}
-	}
-	return ErrUserNotFound
+		return ErrUserNotFound
+	}).Maybe()
+	return st
 }
 
 func TestBootstrapOnce(t *testing.T) {
-	st := newMemStore()
+	st := userStore(t)
 	svc := New(st, testHasher())
 	created, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
@@ -151,7 +159,7 @@ func TestBootstrapOnce(t *testing.T) {
 }
 
 func TestAuthenticateRecordsLastLogin(t *testing.T) {
-	st := newMemStore()
+	st := userStore(t)
 	svc := New(st, testHasher())
 	fixed := time.Date(2026, 9, 21, 8, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return fixed }
@@ -190,7 +198,7 @@ func TestAuthenticateRecordsLastLogin(t *testing.T) {
 }
 
 func TestAuthenticateRejectsWrongPassword(t *testing.T) {
-	st := newMemStore()
+	st := userStore(t)
 	svc := New(st, testHasher())
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
@@ -201,7 +209,7 @@ func TestAuthenticateRejectsWrongPassword(t *testing.T) {
 }
 
 func TestChangePasswordClearsFlag(t *testing.T) {
-	st := newMemStore()
+	st := userStore(t)
 	svc := New(st, testHasher())
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
@@ -221,7 +229,7 @@ func TestChangePasswordClearsFlag(t *testing.T) {
 }
 
 func TestListUsersPagesByUsername(t *testing.T) {
-	st := newMemStore()
+	st := userStore(t)
 	svc := New(st, testHasher())
 	_, _, err := svc.CreateUser(context.Background(), NewUser{Username: "zeta", Roles: []string{RoleReader}})
 	require.NoError(t, err)
@@ -266,7 +274,7 @@ func TestListUsersPagesByUsername(t *testing.T) {
 }
 
 func TestCreateUserRandomPasswordNotStored(t *testing.T) {
-	st := newMemStore()
+	st := userStore(t)
 	svc := New(st, testHasher())
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
@@ -286,6 +294,86 @@ func TestCreateUserRandomPasswordNotStored(t *testing.T) {
 
 	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
 	assert.ErrorIs(t, err, ErrAlreadyExists)
+}
+
+func TestUpdateUserKeepsPasswordAndProfile(t *testing.T) {
+	st := userStore(t)
+	svc := New(st, testHasher())
+	u, plain, err := svc.CreateUser(context.Background(), NewUser{
+		Username: "clerk1", FirstName: "Alt", LastName: "Name", Email: "alt@example.com", Roles: []string{RoleClerk},
+	})
+	require.NoError(t, err)
+
+	updated, err := svc.UpdateUser(context.Background(), u.ID, UserPatch{
+		Username: "clerk2", FirstName: "Neu", LastName: "Berg", Email: "neu@example.com", Roles: []string{RoleReader, RoleClerk},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "clerk2", updated.Username)
+	assert.Equal(t, "Neu", updated.FirstName)
+	assert.Equal(t, "Berg", updated.LastName)
+	assert.Equal(t, "neu@example.com", updated.Email)
+	assert.Equal(t, []string{RoleReader, RoleClerk}, updated.Roles)
+	assert.Equal(t, u.PasswordHash, updated.PasswordHash)
+	assert.True(t, updated.MustChangePassword)
+
+	_, err = st.GetByUsername(context.Background(), "clerk1")
+	assert.ErrorIs(t, err, ErrUserNotFound)
+	got, err := svc.Authenticate(context.Background(), "clerk2", plain)
+	require.NoError(t, err)
+	assert.Equal(t, u.ID, got.ID)
+
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "admin", Roles: []string{RoleAdmin}})
+	require.NoError(t, err)
+	_, err = svc.UpdateUser(context.Background(), u.ID, UserPatch{Username: "admin", Roles: []string{RoleReader}})
+	assert.ErrorIs(t, err, ErrAlreadyExists)
+}
+
+func TestUpdateUserRefusesLastAdminRole(t *testing.T) {
+	st := userStore(t)
+	svc := New(st, testHasher())
+	_, err := svc.Bootstrap(context.Background())
+	require.NoError(t, err)
+	admin, err := st.GetByUsername(context.Background(), "admin")
+	require.NoError(t, err)
+	_, err = svc.UpdateUser(context.Background(), admin.ID, UserPatch{Username: "admin", Roles: []string{RoleReader}})
+	assert.ErrorIs(t, err, ErrLastAdmin)
+}
+
+func TestUpdateProfileLeavesLoginAndRoles(t *testing.T) {
+	st := userStore(t)
+	svc := New(st, testHasher())
+	u, _, err := svc.CreateUser(context.Background(), NewUser{Username: "reader1", Roles: []string{RoleReader}})
+	require.NoError(t, err)
+	updated, err := svc.UpdateProfile(context.Background(), u.ID, ProfilePatch{
+		FirstName: "Ida", LastName: "Horn", Email: "ida@example.com",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "reader1", updated.Username)
+	assert.Equal(t, []string{RoleReader}, updated.Roles)
+	assert.Equal(t, "Ida", updated.FirstName)
+	assert.Equal(t, "ida@example.com", updated.Email)
+	_, err = svc.UpdateProfile(context.Background(), u.ID, ProfilePatch{Email: "keine-mail"})
+	assert.ErrorIs(t, err, ErrInvalidEmail)
+}
+
+func TestResetPasswordForcesChange(t *testing.T) {
+	st := userStore(t)
+	svc := New(st, testHasher())
+	u, plain, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
+	require.NoError(t, err)
+	_, err = svc.ChangePassword(context.Background(), u.ID, plain, "new-secret")
+	require.NoError(t, err)
+
+	reset, next, err := svc.ResetPassword(context.Background(), u.ID)
+	require.NoError(t, err)
+	assert.True(t, reset.MustChangePassword)
+	assert.NotEqual(t, plain, next)
+	assert.NotContains(t, reset.PasswordHash, next)
+	_, err = svc.Authenticate(context.Background(), "clerk1", "new-secret")
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+	got, err := svc.Authenticate(context.Background(), "clerk1", next)
+	require.NoError(t, err)
+	assert.True(t, got.MustChangePassword)
 }
 
 func stringsHasPrefix(s, p string) bool {
