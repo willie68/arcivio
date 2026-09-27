@@ -97,6 +97,8 @@ export default {
   },
   settings: {
     navLabel: "Settings",
+    navCollapse: "Collapse navigation",
+    navExpand: "Expand navigation",
     filterPlaceholder: "Filter",
     filterEmpty: "No matches",
     helpTitle: "Help",
@@ -108,6 +110,7 @@ export default {
       externalSystems: "External systems",
     },
     users: {
+      id: "ID",
       username: "Login name",
       firstName: "First name",
       lastName: "Last name",

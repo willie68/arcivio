@@ -10,6 +10,8 @@ export type SettingsItem = {
   id: string;
   labelKey: string;
   helpKey: string;
+  /** PrimeIcons class without the `pi` prefix, e.g. `pi-users`. */
+  icon: string;
   page?: Component;
   children?: SettingsItem[];
 };
@@ -17,6 +19,7 @@ export type SettingsItem = {
 export type NavNode = {
   id: string;
   label: string;
+  icon: string;
   item: SettingsItem;
   children?: NavNode[];
 };
@@ -26,30 +29,35 @@ export const settingsCatalog: SettingsItem[] = [
     id: "users",
     labelKey: "settings.nav.users",
     helpKey: "settings.help.users",
+    icon: "pi-users",
     page: UsersPage,
   },
   {
     id: "roles",
     labelKey: "settings.nav.roles",
     helpKey: "settings.help.roles",
+    icon: "pi-shield",
     page: RolesPage,
   },
   {
     id: "stores",
     labelKey: "settings.nav.stores",
     helpKey: "settings.help.stores",
+    icon: "pi-folder",
     page: StoresPage,
   },
   {
     id: "document-types",
     labelKey: "settings.nav.documentTypes",
     helpKey: "settings.help.documentTypes",
+    icon: "pi-file",
     page: DocumentTypesPage,
   },
   {
     id: "external-systems",
     labelKey: "settings.nav.externalSystems",
     helpKey: "settings.help.externalSystems",
+    icon: "pi-link",
     page: ExternalSystemsPage,
   },
 ];

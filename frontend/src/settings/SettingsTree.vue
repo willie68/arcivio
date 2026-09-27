@@ -7,6 +7,7 @@ import SettingsTreeNode from "./SettingsTreeNode.vue";
 const props = defineProps<{
   nodes: NavNode[];
   selectedId: string;
+  collapsed?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -16,7 +17,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const filter = ref("");
 
-const visibleNodes = computed(() => filterNodes(props.nodes, filter.value.trim().toLowerCase()));
+const visibleNodes = computed(() => filterNodes(props.nodes, props.collapsed ? "" : filter.value.trim().toLowerCase()));
 
 function filterNodes(nodes: NavNode[], needle: string): NavNode[] {
   if (!needle) {
@@ -37,8 +38,9 @@ function filterNodes(nodes: NavNode[], needle: string): NavNode[] {
 </script>
 
 <template>
-  <div class="tree">
+  <div class="tree" :class="{ collapsed }">
     <input
+      v-if="!collapsed"
       v-model="filter"
       type="search"
       class="filter"
@@ -46,9 +48,14 @@ function filterNodes(nodes: NavNode[], needle: string): NavNode[] {
       :aria-label="t('settings.filterPlaceholder')"
     />
     <ul v-if="visibleNodes.length" class="list" role="tree">
-      <SettingsTreeNode :nodes="visibleNodes" :selected-id="selectedId" @select="emit('select', $event)" />
+      <SettingsTreeNode
+        :nodes="visibleNodes"
+        :selected-id="selectedId"
+        :collapsed="collapsed"
+        @select="emit('select', $event)"
+      />
     </ul>
-    <p v-else class="empty">{{ t("settings.filterEmpty") }}</p>
+    <p v-else-if="!collapsed" class="empty">{{ t("settings.filterEmpty") }}</p>
   </div>
 </template>
 

@@ -459,6 +459,10 @@ onMounted(() => {
     <Dialog v-model:visible="editOpen" modal :header="t('settings.users.editTitle')" :style="{ width: '26rem' }">
       <form class="form" @submit.prevent="submitEdit">
         <label>
+          {{ t("settings.users.id") }}
+          <input :value="editId" readonly tabindex="-1" class="readonly" />
+        </label>
+        <label>
           {{ t("settings.users.username") }}
           <input v-model="form.username" required autocomplete="off" />
         </label>
@@ -565,6 +569,12 @@ onMounted(() => {
   border: 1px solid #c9d0d6;
   border-radius: 8px;
   font: inherit;
+}
+.form input.readonly {
+  background: #f3f5f7;
+  color: #5a6672;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9rem;
 }
 fieldset {
   margin: 0;
