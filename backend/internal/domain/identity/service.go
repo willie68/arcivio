@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rs/xid"
+	"github.com/willie68/arcivio/internal/domain/roles"
 )
 
 const (
@@ -17,21 +18,27 @@ const (
 	minPasswordLength = 8
 )
 
+type rolesService interface {
+	ValidateRoles(roles []string) error
+}
+
 // Service is the identity use-case root (local accounts, bootstrap, password rules).
 type Service struct {
 	users  UserStore
 	hasher PasswordHasher
+	roles  rolesService
 	now    func() time.Time
 }
 
 // New creates the identity service.
-func New(users UserStore, hasher PasswordHasher) *Service {
+func New(users UserStore, hasher PasswordHasher, roles rolesService) *Service {
 	if hasher == nil {
 		hasher = newArgon2Hasher()
 	}
 	return &Service{
 		users:  users,
 		hasher: hasher,
+		roles:  roles,
 		now:    time.Now,
 	}
 }
@@ -56,7 +63,7 @@ func (s *Service) Bootstrap(ctx context.Context) (created bool, err error) {
 		ID:                 xid.New().String(),
 		Username:           bootstrapUsername,
 		PasswordHash:       hash,
-		Roles:              []string{RoleAdmin},
+		Roles:              []string{roles.RoleAdmin},
 		MustChangePassword: true,
 		CreatedAt:          now,
 		UpdatedAt:          now,
@@ -159,7 +166,7 @@ func (s *Service) CreateUser(ctx context.Context, in NewUser) (*User, string, er
 	if err != nil {
 		return nil, "", err
 	}
-	if err := ValidateRoles(in.Roles); err != nil {
+	if err := s.roles.ValidateRoles(in.Roles); err != nil {
 		return nil, "", err
 	}
 	if existing, err := s.users.GetByUsername(ctx, username); err == nil && existing != nil {
@@ -206,8 +213,8 @@ func (s *Service) DeleteUser(ctx context.Context, actorID, userID string) error 
 	if err != nil {
 		return err
 	}
-	if HasRole(u, RoleAdmin) {
-		n, err := s.users.CountWithRole(ctx, RoleAdmin)
+	if HasRole(u, roles.RoleAdmin) {
+		n, err := s.users.CountWithRole(ctx, roles.RoleAdmin)
 		if err != nil {
 			return err
 		}
@@ -236,7 +243,7 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, in UserPatch) (
 	if err != nil {
 		return nil, err
 	}
-	if err := ValidateRoles(in.Roles); err != nil {
+	if err := s.roles.ValidateRoles(in.Roles); err != nil {
 		return nil, err
 	}
 	if username != u.Username {
@@ -248,8 +255,8 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, in UserPatch) (
 			return nil, err
 		}
 	}
-	if HasRole(u, RoleAdmin) && !HasRole(&User{Roles: in.Roles}, RoleAdmin) {
-		n, err := s.users.CountWithRole(ctx, RoleAdmin)
+	if HasRole(u, roles.RoleAdmin) && !HasRole(&User{Roles: in.Roles}, roles.RoleAdmin) {
+		n, err := s.users.CountWithRole(ctx, roles.RoleAdmin)
 		if err != nil {
 			return nil, err
 		}

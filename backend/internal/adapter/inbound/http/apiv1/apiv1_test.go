@@ -87,6 +87,11 @@ func TestAPIRoutesAndHealthRoutes(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/roles", nil)
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/me/password", nil)
 	router.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)

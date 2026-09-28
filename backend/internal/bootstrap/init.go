@@ -8,6 +8,7 @@ import (
 	"github.com/willie68/arcivio/internal/domain/document"
 	"github.com/willie68/arcivio/internal/domain/identity"
 	"github.com/willie68/arcivio/internal/domain/idp"
+	"github.com/willie68/arcivio/internal/domain/roles"
 	"github.com/willie68/arcivio/internal/infrastructure/health"
 	"github.com/willie68/arcivio/internal/infrastructure/logging"
 	"github.com/willie68/arcivio/internal/infrastructure/shttp"
@@ -29,6 +30,9 @@ func InitServices(inj do.Injector, cfg config.Config) error {
 		return err
 	}
 	if err := store.Provide(inj); err != nil {
+		return err
+	}
+	if err := roles.Provide(inj); err != nil {
 		return err
 	}
 	if err := idsqlite.Provide(inj); err != nil {

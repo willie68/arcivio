@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	storesqlite "github.com/willie68/arcivio/internal/adapter/outbound/store/sqlite"
 	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/roles"
 )
 
 func TestUserRepoCRUD(t *testing.T) {
@@ -30,7 +31,7 @@ func TestUserRepoCRUD(t *testing.T) {
 		ID:                 "u1",
 		Username:           "admin",
 		PasswordHash:       "$argon2id$v=19$m=16,t=1,p=1$YWFhYWFhYWFhYWFhYWFhYQ$YmJiYmJiYmJiYmJiYmJiYg",
-		Roles:              []string{identity.RoleAdmin},
+		Roles:              []string{roles.RoleAdmin},
 		MustChangePassword: true,
 		CreatedAt:          now,
 		UpdatedAt:          now,
@@ -71,7 +72,7 @@ func TestUserRepoListOrdersByUsername(t *testing.T) {
 			ID:           name,
 			Username:     name,
 			PasswordHash: "hash",
-			Roles:        []string{identity.RoleReader},
+			Roles:        []string{roles.RoleReader},
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}))
@@ -111,7 +112,7 @@ func TestUserRepoProfileAndUniqueLoginName(t *testing.T) {
 		LastName:     "Lovelace",
 		Email:        "ada@example.com",
 		PasswordHash: "hash",
-		Roles:        []string{identity.RoleAdmin},
+		Roles:        []string{roles.RoleAdmin},
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}))
@@ -126,7 +127,7 @@ func TestUserRepoProfileAndUniqueLoginName(t *testing.T) {
 		ID:           "other",
 		Username:     "Ada",
 		PasswordHash: "hash",
-		Roles:        []string{identity.RoleReader},
+		Roles:        []string{roles.RoleReader},
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	})
@@ -146,7 +147,7 @@ func TestUserRepoRecordLastLogin(t *testing.T) {
 		ID:                 "u1",
 		Username:           "admin",
 		PasswordHash:       "$argon2id$v=19$m=16,t=1,p=1$YWFhYWFhYWFhYWFhYWFhYQ$YmJiYmJiYmJiYmJiYmJiYg",
-		Roles:              []string{identity.RoleAdmin},
+		Roles:              []string{roles.RoleAdmin},
 		MustChangePassword: true,
 		CreatedAt:          now,
 		UpdatedAt:          now,

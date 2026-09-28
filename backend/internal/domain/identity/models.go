@@ -46,14 +46,6 @@ type ProfilePatch struct {
 	Email     string
 }
 
-// Built-in RBAC roles from PLAN.md.
-const (
-	RoleAdmin     = "admin"
-	RoleArchivist = "archivist"
-	RoleClerk     = "clerk"
-	RoleReader    = "reader"
-)
-
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUserNotFound       = errors.New("user not found")

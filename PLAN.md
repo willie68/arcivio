@@ -2,22 +2,24 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-24)
+## Aktueller Stand (2026-09-28)
 
-**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die erste Settings-Maske (Benutzer) ist da. Rollen, Ablagen, Dokumenttypen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; die Benutzer-API prüft die Rolle `admin`.
+**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer und Rollen sind da. Ablagen, Dokumenttypen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer- und Rollen-API prüfen die Rolle `admin`.
 
 Vorhanden:
 
 - Go-Modul `github.com/willie68/arcivio`, Servicename `arcivio`, Go 1.26
 - Repo-Layout: `backend/` (Go), `frontend/` (Vite/Vue), `bruno/`, `scripts/`
-- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp}`
+- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp,users,roles}`
 - YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
 - Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`: Loginname eindeutig, Vorname, Name, E-Mail, `last_login`)
-- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser, DeleteUser, LastLogin bei erfolgreichem Login)
+- Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser, UpdateUser, DeleteUser, LastLogin bei erfolgreichem Login); Rollenprüfung über Domain `roles`
+- Domain `roles`: fester Katalog `admin`, `archivist`, `clerk`, `reader` mit Labels und Kurzbeschreibung auf Deutsch und Englisch
 - Domain `idp`: interner OIDC-IdP (Authorization Code + PKCE S256, RS256 JWT, JWKS)
 - HTTP `/auth` (Discovery, JWKS, authorize, login, change-password, token, userinfo, logout); JWT nur auf `/api/v1`
 - `GET /api/v1/me` (Loginname, Vorname, Name, E-Mail, `lastLogin`), `POST /api/v1/me/password`
-- Benutzer-API (nur Rolle `admin`): `GET /api/v1/users` (Seite, Sortierung, Präfixfilter ab 3 Zeichen), `POST /api/v1/users` (Einmalpasswort), `DELETE /api/v1/users/{id}`
+- Benutzer-API (nur Rolle `admin`): `GET /api/v1/users` (Seite, Sortierung, Präfixfilter ab 3 Zeichen), `POST /api/v1/users` (Einmalpasswort), `PUT /api/v1/users/{id}`, `POST /api/v1/users/{id}/password-reset`, `DELETE /api/v1/users/{id}`
+- Rollen-API (nur Rolle `admin`, Claim `roles` im Access-Token): `GET /api/v1/roles`. Fehlende Rolle antwortet mit 403, nicht mit einer neuen Anmeldung.
 - Stub-Domain `internal/domain/document` (Port `Store.Ping`, Use Case `Status`)
 - Vue 3 + PrimeVue 4 Aura + Vite + Vue Router + vue-i18n (`de`/`en` nach Browser) in `frontend/`
 - `scripts/build.cmd` baut zuerst das Frontend nach `backend/pkg/web/client`, danach das Binary
@@ -27,7 +29,7 @@ Vorhanden:
 - Benutzer-Menü: Mein Konto (Dialog mit Loginname, Vorname, Name, E-Mail, LastLogin), Passwort ändern (Dialog im Client-Bereich), Info, Logout
 - Client-Start: Dashboard mit Filter und einklappbaren Bereichen Useraktionen (leer = zu), Ablagen/Ordner (Default, Auditlog, Eingang), Status (Platzhalterzahlen)
 - Einstellungen: Baum links inkl. Filter, Seite in der Mitte, Hilfe rechts ein-/ausklappbar (zu: nur „?“); live, ohne Save
-- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen und Löschen. Übrige Blätter Platzhalter: Rollen, Ablagen, Dokumenttypen, externe Systeme
+- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen, Bearbeiten, Passwort-Reset und Löschen. Rollen stehen mit Anzeigenamen. Blatt Rollen: Tabelle mit technischem Namen und Labels (de/en); die selektierte Zeile schreibt die Beschreibung in die Hilfespalte. Platzhalter: Ablagen, Dokumenttypen, externe Systeme
 - Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth`, `/api`, `/swagger`, `/livez`, `/readyz` zum Go-HTTPS
 - Health `/livez` `/readyz`, Swagger `/swagger/` (`/me`), `data/` und `frontend/node_modules/` gitignored
 - JWT aktiv (`auth.type: jwt`); Signaturprüfung über den IdP-Verifier
@@ -36,7 +38,7 @@ Vorhanden:
 
 Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-Nächster Schritt: **weitere Settings-Masken** (Rollen, dann Ablagen: anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m). Benutzerliste ist live (Filter, Sortierung, Anlegen, Löschen), Feldänderungen am bestehenden User gibt es noch nicht. Danach **Ablagen (Stores)** plus **Dokumente + Typen**. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
+Nächster Schritt: **Ablagen** (anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m), danach **Dokumente + Typen**. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
 
 ## Offene Arbeitspakete
 
@@ -44,7 +46,7 @@ Nächster Schritt: **weitere Settings-Masken** (Rollen, dann Ablagen: anlegen, P
 - [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
 - [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
 - [x] UI-Gerüst: App-Shell, Aura, i18n DE/EN, Client/Einstellungen-Toggle, User-Menü, Settings-Baum mit 5 Platzhalterseiten
-- [ ] Settings-Masken live ohne Save (Benutzerliste ist da; Rollen, Ablagen, Dokumenttypen, externe Systeme fehlen; Benutzerfelder noch nicht editierbar)
+- [ ] Settings-Masken live ohne Save (Benutzer und Rollen sind da; Ablagen, Dokumenttypen, externe Systeme fehlen)
 - [ ] Ablagen (Stores): selbsttragendes Verzeichnis pro Ablage, Default-Store beim ersten Start, optionales Masterpasswort nur bei Anlage
 - [ ] RBAC an der API durchsetzen (Benutzer-API prüft `admin`; Permissions `document.create` etc. fehlen)
 - [ ] Dokumenttypen als Schema mit archival vs. fluid Attributen; Zuordnung Typ↔Ablage n:m; Typkopie in der Ablage beim ersten Ablegen
@@ -426,7 +428,7 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 **Interner IdP** (lokal, kein Keycloak): Benutzername + Argon2id-Passwort. HTTP-Adapter unter `/auth`, Domain `idp`. SSO (Entra/Apple) ist zusätzlich geplant; nach OIDC entsteht dasselbe interne JWT.
 
 - JWT im Authorization-Header; Access-Token RS256, Prüfung über den IdP (JWKS)
-- RBAC-Rollen am User und im Token: `admin`, `archivist`, `clerk`, `reader`; Feingranular `document.create`, `archive.seal`, `retention.dispose` **noch nicht** durchgesetzt
+- RBAC-Rollen am User und im Access-Token (`roles`): `admin`, `archivist`, `clerk`, `reader`. Katalog, Labels und Beschreibungen liegen in Domain `roles`. Feingranular `document.create`, `archive.seal`, `retention.dispose` **noch nicht** durchgesetzt
 - Nutzerfeld `mustChangePassword` (boolean)
 - Nutzerfeld `LastLogin` (*time.Time, SQLite `last_login`); wird bei erfolgreichem `Authenticate` gesetzt, `GET /api/v1/me` liefert `lastLogin`
 - Profilfelder `firstName`, `lastName`, `email` (E-Mail optional). `username` ist der **Loginname** und eindeutig (SQLite `UNIQUE COLLATE NOCASE`)
@@ -443,7 +445,7 @@ Baut auf Template-JWT auf (`adapter/inbound/http/auth`, Config-Block `auth` in `
 
 OIDC-Nutzer ohne lokales Passwort: kein `mustChangePassword` über dieses Passwort-Protokoll. TOTP später optional.
 
-**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login, `GET /api/v1/me` (Profil inkl. LastLogin), `POST /api/v1/me/password`. Benutzer-API nur mit Rolle `admin`: Liste (Seite, `sort`/`order`, `prefix` ab 3 Zeichen auf Loginname, Vorname, Name oder E-Mail), Anlegen, Löschen. **Nicht:** Bearbeiten bestehender Profilfelder, Feingranular-Permissions, Entra/Apple.
+**Ist:** Interner IdP unter `/auth` (OIDC Authorization Code + PKCE S256, Discovery, JWKS). Passwörter nur als Argon2id-PHC in SQLite. `auth.type: jwt`; Middleware validiert Access-Token über den IdP. SPA-Login, `GET /api/v1/me` (Profil inkl. LastLogin), `POST /api/v1/me/password`. Benutzer-API nur mit Rolle `admin`: Liste (Seite, `sort`/`order`, `prefix` ab 3 Zeichen auf Loginname, Vorname, Name oder E-Mail), Anlegen, Bearbeiten, Passwort-Reset, Löschen. Rollen-API `GET /api/v1/roles` prüft die Rolle `admin` am Token-Claim `roles` und antwortet sonst mit 403. **Nicht:** Feingranular-Permissions, Entra/Apple.
 
 ## Auditlog
 
@@ -487,19 +489,21 @@ Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder *
 
 Client-Start ist ein Dashboard: links Filter und einklappbare Bereiche (Useraktionen zu, solange leer; Ablagen/Ordner mit Default, Auditlog, Eingang; Status mit Platzhalterwerten), in der Mitte nur der Einführungstext.
 
-Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blatt **Benutzer** ist die erste echte Maske. Platzhalter bleiben: Rollen, Ablagen, Dokumenttypen, externe Systeme.
+Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blätter **Benutzer** und **Rollen** sind echte Masken. Platzhalter bleiben: Ablagen, Dokumenttypen, externe Systeme.
 
-**Benutzer-Maske:** Tabelle mit Loginname, Vorname, Name, E-Mail, Rollen, letzter Anmeldung, Passwortwechsel. Pagination und Sortierung laufen im Backend (`sort`: `username`, `firstName`, `lastName`, `email`, `roles`, `lastLogin`, `mustChangePassword`). Unter dem Titel: links Präfixfilter (ab 3 Zeichen, sonst ungefiltert), rechts Icon-Buttons Neuer Benutzer und Löschen (Mehrfachauswahl, Bestätigung).
+**Benutzer-Maske:** Tabelle mit Loginname, Vorname, Name, E-Mail, Rollen (Anzeigenamen), letzter Anmeldung. Pagination und Sortierung laufen im Backend (`sort`: `username`, `firstName`, `lastName`, `email`, `roles`, `lastLogin`, `mustChangePassword`). Unter dem Titel: links Präfixfilter (ab 3 Zeichen, sonst ungefiltert), rechts Icon-Buttons Neuer Benutzer, Bearbeiten und Löschen (Löschen mit Mehrfachauswahl und Bestätigung).
+
+**Rollen-Maske:** Tabelle aus `GET /api/v1/roles` mit technischem Namen, Label (de) und Label (en). Eine selektierte Zeile ersetzt den Hilfetext der Seite durch die Beschreibung in der UI-Sprache. Fehlt die Admin-Rolle, bleibt die Seite stehen und zeigt einen kurzen Hinweis; es gibt keinen Redirect zur Anmeldung.
 
 Benutzer-Menü: Mein Konto (Dialog mit Loginname, Vorname, Name, E-Mail, LastLogin), Passwort ändern (Dialog zentriert im Client-Bereich, `POST /api/v1/me/password`), Info, Logout.
 
-**Nächster UI-Schritt:** Rollen-Maske, dann Ablagen (anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m). Benutzerfelder bestehender Konten sind noch nicht editierbar. Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12).
+**Nächster UI-Schritt:** Ablagen (anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m). Client-Module Ablage/Suche/Archiv erst mit der Fach-UI (Phase 12).
 
 **Soll (MVP+, spätere Phasen):** Inbox/Upload, Dokumentliste + Filter, Dokumentdetail mit **Blobview**, Typschablonen-Editor, **ein Suchfeld**, Suche-KI-Toggle, Archiv-Volumes, **Audit-Store (Admin)**, Benutzer/Rollen, Extraktor-URL, SSO-Buttons, **Hilfesystem**.
 
 ## Hilfesystem
 
-**Ist:** Header-Knopf „?“ öffnet die GitHub-README (`blob/main/README.md`) in einem neuen Tab. Gleiche URL wie der Copyright-Link im Footer. In den Einstellungen gibt es eine rechte Hilfespalte (kurzer Text zur aktuellen Seite), ein- und ausklappbar; zugeklappt bleibt nur „?“. Das ist noch kein Artikel-Hilfesystem.
+**Ist:** Header-Knopf „?“ öffnet die GitHub-README (`blob/main/README.md`) in einem neuen Tab. Gleiche URL wie der Copyright-Link im Footer. In den Einstellungen gibt es eine rechte Hilfespalte (kurzer Text zur aktuellen Seite), ein- und ausklappbar; zugeklappt bleibt nur „?“. Auf der Rollen-Maske ersetzt die Beschreibung der selektierten Rolle diesen Seitentext. Das ist noch kein Artikel-Hilfesystem.
 
 **Soll:** kontextsensitive Hilfe in der SPA, zweisprachig wie die übrige UI (`de`/`en` nach Browser).
 
@@ -601,9 +605,10 @@ Erledigt:
 4. Client/Einstellungen-Toggle; Settings-Baum mit Filter; Platzhalterseiten Benutzer, Rollen, Ablagen, Dokumenttypen, externe Systeme; Hilfe-Spalte
 5. User-Menü: Konto-Dialog, Passwort-Dialog (im Client-Bereich), Info, Logout
 6. Client-Dashboard: Filter, Useraktionen (zugeklappt wenn leer), Ablagen/Ordner, Status-Platzhalter; Mitte nur Einführungstext
-7. Benutzer-Maske: Tabelle, Präfixfilter, Sortierung, Anlegen, Löschen; Hilfe einklappbar; Konto-Dialog mit Profilfeldern
+7. Benutzer-Maske: Tabelle, Präfixfilter, Sortierung, Anlegen, Bearbeiten, Löschen; Rollen als Anzeigenamen, ohne Spalte Passwortwechsel; Hilfe einklappbar; Konto-Dialog mit Profilfeldern
+8. Rollen-Maske: Katalog aus `GET /api/v1/roles` (technischer Name, Labels de/en); selektierte Zeile zeigt die Beschreibung in der Hilfespalte. Fehlende Admin-Rolle: Hinweis auf der Seite, kein Login-Redirect
 
-Offen in dieser Phase: übrige Settings-Masken (Rollen, Ablagen, Dokumenttypen, externe Systeme) und Ändern bestehender Benutzerfelder.
+Offen in dieser Phase: übrige Settings-Masken (Ablagen, Dokumenttypen, externe Systeme).
 
 Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus wie dasselbe Produkt.
 

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/willie68/arcivio/internal/domain/roles"
 )
 
 // userStore is the generated UserStore mock with the in-memory behaviour the service tests rely on.
@@ -135,9 +136,18 @@ func userStore(t *testing.T) *mockUserStore {
 	return st
 }
 
+// rolesMock is the generated roles service. ValidateRoles follows the real catalog.
+func rolesMock(t *testing.T) *mockRolesService {
+	t.Helper()
+	real := roles.NewService()
+	rs := newMockRolesService(t)
+	rs.EXPECT().ValidateRoles(mock.Anything).RunAndReturn(real.ValidateRoles).Maybe()
+	return rs
+}
+
 func TestBootstrapOnce(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	created, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
 	assert.True(t, created)
@@ -146,7 +156,7 @@ func TestBootstrapOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "admin", u.Username)
 	assert.True(t, u.MustChangePassword)
-	assert.Equal(t, []string{RoleAdmin}, u.Roles)
+	assert.Equal(t, []string{roles.RoleAdmin}, u.Roles)
 	assert.True(t, stringsHasPrefix(u.PasswordHash, "$argon2id$"))
 	assert.NotEqual(t, "admin", u.PasswordHash)
 
@@ -160,7 +170,7 @@ func TestBootstrapOnce(t *testing.T) {
 
 func TestAuthenticateRecordsLastLogin(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	fixed := time.Date(2026, 9, 21, 8, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return fixed }
 	_, err := svc.Bootstrap(context.Background())
@@ -199,7 +209,7 @@ func TestAuthenticateRecordsLastLogin(t *testing.T) {
 
 func TestAuthenticateRejectsWrongPassword(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
 	_, err = svc.Authenticate(context.Background(), "admin", "nope")
@@ -210,7 +220,7 @@ func TestAuthenticateRejectsWrongPassword(t *testing.T) {
 
 func TestChangePasswordClearsFlag(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
 	u, err := svc.Authenticate(context.Background(), "admin", "admin")
@@ -230,12 +240,12 @@ func TestChangePasswordClearsFlag(t *testing.T) {
 
 func TestListUsersPagesByUsername(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
-	_, _, err := svc.CreateUser(context.Background(), NewUser{Username: "zeta", Roles: []string{RoleReader}})
+	svc := New(st, testHasher(), rolesMock(t))
+	_, _, err := svc.CreateUser(context.Background(), NewUser{Username: "zeta", Roles: []string{roles.RoleReader}})
 	require.NoError(t, err)
-	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "alpha", FirstName: "Ann", Roles: []string{RoleClerk}})
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "alpha", FirstName: "Ann", Roles: []string{roles.RoleClerk}})
 	require.NoError(t, err)
-	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "mid", Roles: []string{RoleArchivist}})
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "mid", Roles: []string{roles.RoleArchivist}})
 	require.NoError(t, err)
 
 	page, total, err := svc.ListUsers(context.Background(), 0, 2, SortUsername, false, "")
@@ -275,11 +285,11 @@ func TestListUsersPagesByUsername(t *testing.T) {
 
 func TestCreateUserRandomPasswordNotStored(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
 
-	u, plain, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
+	u, plain, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{roles.RoleClerk}})
 	require.NoError(t, err)
 	assert.NotEmpty(t, plain)
 	assert.True(t, u.MustChangePassword)
@@ -292,27 +302,27 @@ func TestCreateUserRandomPasswordNotStored(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, u.ID, got.ID)
 
-	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{roles.RoleClerk}})
 	assert.ErrorIs(t, err, ErrAlreadyExists)
 }
 
 func TestUpdateUserKeepsPasswordAndProfile(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	u, plain, err := svc.CreateUser(context.Background(), NewUser{
-		Username: "clerk1", FirstName: "Alt", LastName: "Name", Email: "alt@example.com", Roles: []string{RoleClerk},
+		Username: "clerk1", FirstName: "Alt", LastName: "Name", Email: "alt@example.com", Roles: []string{roles.RoleClerk},
 	})
 	require.NoError(t, err)
 
 	updated, err := svc.UpdateUser(context.Background(), u.ID, UserPatch{
-		Username: "clerk2", FirstName: "Neu", LastName: "Berg", Email: "neu@example.com", Roles: []string{RoleReader, RoleClerk},
+		Username: "clerk2", FirstName: "Neu", LastName: "Berg", Email: "neu@example.com", Roles: []string{roles.RoleReader, roles.RoleClerk},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "clerk2", updated.Username)
 	assert.Equal(t, "Neu", updated.FirstName)
 	assert.Equal(t, "Berg", updated.LastName)
 	assert.Equal(t, "neu@example.com", updated.Email)
-	assert.Equal(t, []string{RoleReader, RoleClerk}, updated.Roles)
+	assert.Equal(t, []string{roles.RoleReader, roles.RoleClerk}, updated.Roles)
 	assert.Equal(t, u.PasswordHash, updated.PasswordHash)
 	assert.True(t, updated.MustChangePassword)
 
@@ -322,34 +332,34 @@ func TestUpdateUserKeepsPasswordAndProfile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, u.ID, got.ID)
 
-	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "admin", Roles: []string{RoleAdmin}})
+	_, _, err = svc.CreateUser(context.Background(), NewUser{Username: "admin", Roles: []string{roles.RoleAdmin}})
 	require.NoError(t, err)
-	_, err = svc.UpdateUser(context.Background(), u.ID, UserPatch{Username: "admin", Roles: []string{RoleReader}})
+	_, err = svc.UpdateUser(context.Background(), u.ID, UserPatch{Username: "admin", Roles: []string{roles.RoleReader}})
 	assert.ErrorIs(t, err, ErrAlreadyExists)
 }
 
 func TestUpdateUserRefusesLastAdminRole(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
+	svc := New(st, testHasher(), rolesMock(t))
 	_, err := svc.Bootstrap(context.Background())
 	require.NoError(t, err)
 	admin, err := st.GetByUsername(context.Background(), "admin")
 	require.NoError(t, err)
-	_, err = svc.UpdateUser(context.Background(), admin.ID, UserPatch{Username: "admin", Roles: []string{RoleReader}})
+	_, err = svc.UpdateUser(context.Background(), admin.ID, UserPatch{Username: "admin", Roles: []string{roles.RoleReader}})
 	assert.ErrorIs(t, err, ErrLastAdmin)
 }
 
 func TestUpdateProfileLeavesLoginAndRoles(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
-	u, _, err := svc.CreateUser(context.Background(), NewUser{Username: "reader1", Roles: []string{RoleReader}})
+	svc := New(st, testHasher(), rolesMock(t))
+	u, _, err := svc.CreateUser(context.Background(), NewUser{Username: "reader1", Roles: []string{roles.RoleReader}})
 	require.NoError(t, err)
 	updated, err := svc.UpdateProfile(context.Background(), u.ID, ProfilePatch{
 		FirstName: "Ida", LastName: "Horn", Email: "ida@example.com",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "reader1", updated.Username)
-	assert.Equal(t, []string{RoleReader}, updated.Roles)
+	assert.Equal(t, []string{roles.RoleReader}, updated.Roles)
 	assert.Equal(t, "Ida", updated.FirstName)
 	assert.Equal(t, "ida@example.com", updated.Email)
 	_, err = svc.UpdateProfile(context.Background(), u.ID, ProfilePatch{Email: "keine-mail"})
@@ -358,8 +368,8 @@ func TestUpdateProfileLeavesLoginAndRoles(t *testing.T) {
 
 func TestResetPasswordForcesChange(t *testing.T) {
 	st := userStore(t)
-	svc := New(st, testHasher())
-	u, plain, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{RoleClerk}})
+	svc := New(st, testHasher(), rolesMock(t))
+	u, plain, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{roles.RoleClerk}})
 	require.NoError(t, err)
 	_, err = svc.ChangePassword(context.Background(), u.ID, plain, "new-secret")
 	require.NoError(t, err)

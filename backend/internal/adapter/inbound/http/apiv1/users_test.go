@@ -15,6 +15,7 @@ import (
 	usersqlite "github.com/willie68/arcivio/internal/adapter/outbound/identity/sqlite"
 	storesqlite "github.com/willie68/arcivio/internal/adapter/outbound/store/sqlite"
 	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/roles"
 )
 
 func TestUpdateOwnProfile(t *testing.T) {
@@ -23,8 +24,8 @@ func TestUpdateOwnProfile(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	repo, err := usersqlite.New(st.DB())
 	require.NoError(t, err)
-	svc := identity.New(repo, identity.NewArgon2HasherWithParams(1, 8*1024, 1, 32, 16))
-	user, _, err := svc.CreateUser(context.Background(), identity.NewUser{Username: "reader", Roles: []string{identity.RoleReader}})
+	svc := identity.New(repo, identity.NewArgon2HasherWithParams(1, 8*1024, 1, 32, 16), roles.NewService())
+	user, _, err := svc.CreateUser(context.Background(), identity.NewUser{Username: "reader", Roles: []string{roles.RoleReader}})
 	require.NoError(t, err)
 	h := &meHandler{ident: svc}
 
@@ -43,5 +44,5 @@ func TestUpdateOwnProfile(t *testing.T) {
 	assert.Equal(t, "Ida", me.FirstName)
 	assert.Equal(t, "Horn", me.LastName)
 	assert.Equal(t, "ida@example.com", me.Email)
-	assert.Equal(t, []string{identity.RoleReader}, me.Roles)
+	assert.Equal(t, []string{roles.RoleReader}, me.Roles)
 }

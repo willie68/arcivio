@@ -401,13 +401,10 @@ onMounted(() => {
         <template #body="{ data }">{{ data.email || "—" }}</template>
       </Column>
       <Column field="roles" :header="t('settings.users.roles')" sortable>
-        <template #body="{ data }">{{ data.roles.join(", ") || "—" }}</template>
+        <template #body="{ data }">{{ data.roles.map(roleLabel).join(", ") || "—" }}</template>
       </Column>
       <Column field="lastLogin" :header="t('settings.users.lastLogin')" sortable>
         <template #body="{ data }">{{ formatLastLogin(data.lastLogin) }}</template>
-      </Column>
-      <Column field="mustChangePassword" :header="t('settings.users.mustChange')" sortable>
-        <template #body="{ data }">{{ data.mustChangePassword ? t("settings.users.yes") : t("settings.users.no") }}</template>
       </Column>
     </DataTable>
 

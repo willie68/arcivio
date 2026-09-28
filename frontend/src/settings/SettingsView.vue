@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { settingsCatalog, findItem, firstLeafId, pathToItem, type NavNode, type SettingsItem } from "./catalog";
+import { provideSettingsHelp } from "./help";
 import SettingsTree from "./SettingsTree.vue";
 
 const { t } = useI18n();
 const selectedId = ref(firstLeafId() ?? "");
 const navOpen = ref(true);
 const helpOpen = ref(true);
+const helpOverride = provideSettingsHelp();
 
 const nodes = computed<NavNode[]>(() => toNavNodes(settingsCatalog));
 const selectedItem = computed(() => (selectedId.value ? findItem(selectedId.value) : undefined));
@@ -25,6 +27,10 @@ function toNavNodes(items: SettingsItem[]): NavNode[] {
     children: item.children?.length ? toNavNodes(item.children) : undefined,
   }));
 }
+
+watch(selectedId, () => {
+  helpOverride.value = null;
+});
 
 function onSelect(node: NavNode) {
   if (node.item.page) {
@@ -60,7 +66,8 @@ function onSelect(node: NavNode) {
         </template>
         <span v-else class="help-mark">?</span>
       </button>
-      <p v-if="helpOpen && selectedItem">{{ t(selectedItem.helpKey) }}</p>
+      <p v-if="helpOpen && helpOverride">{{ helpOverride }}</p>
+      <p v-else-if="helpOpen && selectedItem">{{ t(selectedItem.helpKey) }}</p>
     </aside>
   </div>
 </template>

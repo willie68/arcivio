@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/roles"
 )
 
 func newTestIDP(t *testing.T) (*Provider, *mockIdentityService) {
@@ -36,7 +37,7 @@ func mustChangeAdmin() *identity.User {
 	return &identity.User{
 		ID:                 "admin-id",
 		Username:           "admin",
-		Roles:              []string{identity.RoleAdmin},
+		Roles:              []string{roles.RoleAdmin},
 		MustChangePassword: true,
 	}
 }
@@ -45,7 +46,7 @@ func readyAdmin() *identity.User {
 	return &identity.User{
 		ID:       "admin-id",
 		Username: "admin",
-		Roles:    []string{identity.RoleAdmin},
+		Roles:    []string{roles.RoleAdmin},
 	}
 }
 

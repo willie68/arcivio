@@ -13,6 +13,7 @@ import (
 	"github.com/samber/do/v2"
 	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/roles"
 	"github.com/willie68/arcivio/internal/shared/serror"
 	"github.com/willie68/arcivio/internal/shared/utils/httputils"
 )
@@ -316,7 +317,7 @@ func requireAdmin(ident identityService, w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return nil, false
 	}
-	if !identity.HasRole(u, identity.RoleAdmin) {
+	if !identity.HasRole(u, roles.RoleAdmin) {
 		httputils.Err(w, r, serror.Forbidden(errors.New("admin role required"), "forbidden", "admin role required"))
 		return nil, false
 	}

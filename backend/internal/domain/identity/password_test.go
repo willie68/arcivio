@@ -37,11 +37,3 @@ func TestValidateNewPassword(t *testing.T) {
 	assert.ErrorIs(t, ValidateNewPassword("samepass", "samepass"), ErrSamePassword)
 	assert.NoError(t, ValidateNewPassword("new-password", "old-password"))
 }
-
-func TestValidRole(t *testing.T) {
-	assert.True(t, ValidRole(RoleAdmin))
-	assert.True(t, ValidRole(RoleReader))
-	assert.False(t, ValidRole("superuser"))
-	assert.ErrorIs(t, ValidateRoles(nil), ErrInvalidRole)
-	assert.NoError(t, ValidateRoles([]string{RoleClerk, RoleArchivist}))
-}

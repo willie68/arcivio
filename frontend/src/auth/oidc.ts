@@ -185,6 +185,30 @@ export type SettingsUserPage = {
   pageSize: number;
 };
 
+export type SettingsRole = {
+  name: string;
+  labels: { de: string; en: string };
+  description: { de: string; en: string };
+};
+
+export async function listRoles(): Promise<SettingsRole[]> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error("not authenticated");
+  }
+  const res = await fetch("/api/v1/roles", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new Error("forbidden");
+  }
+  if (!res.ok) {
+    throw new Error("load-failed");
+  }
+  const data = (await res.json()) as { items?: SettingsRole[] };
+  return data.items ?? [];
+}
+
 export async function listUsers(
   page: number,
   pageSize: number,

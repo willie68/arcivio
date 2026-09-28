@@ -15,12 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	"github.com/willie68/arcivio/internal/domain/identity"
+	"github.com/willie68/arcivio/internal/domain/roles"
 )
 
 func TestListUsersRequiresAdmin(t *testing.T) {
 	ident := newMockIdentityService(t)
-	admin := identity.User{ID: "admin-id", Username: "admin", Roles: []string{identity.RoleAdmin}}
-	clerk := identity.User{ID: "clerk-id", Username: "clerk", FirstName: "Chris", Roles: []string{identity.RoleClerk}}
+	admin := identity.User{ID: "admin-id", Username: "admin", Roles: []string{roles.RoleAdmin}}
+	clerk := identity.User{ID: "clerk-id", Username: "clerk", FirstName: "Chris", Roles: []string{roles.RoleClerk}}
 	ident.EXPECT().GetByID(mock.Anything, clerk.ID).Return(&clerk, nil).Once()
 	ident.EXPECT().GetByID(mock.Anything, admin.ID).Return(&admin, nil).Times(3)
 	ident.EXPECT().ListUsers(mock.Anything, 0, 1, "", false, "").
@@ -80,15 +81,15 @@ func TestListUsersRequiresAdmin(t *testing.T) {
 
 func TestCreateAndDeleteUser(t *testing.T) {
 	ident := newMockIdentityService(t)
-	admin := identity.User{ID: "admin-id", Username: "admin", Roles: []string{identity.RoleAdmin}}
-	createdUser := identity.User{ID: "neu-id", Username: "neu", Roles: []string{identity.RoleReader}}
+	admin := identity.User{ID: "admin-id", Username: "admin", Roles: []string{roles.RoleAdmin}}
+	createdUser := identity.User{ID: "neu-id", Username: "neu", Roles: []string{roles.RoleReader}}
 	ident.EXPECT().GetByID(mock.Anything, admin.ID).Return(&admin, nil).Times(3)
 	ident.EXPECT().CreateUser(mock.Anything, identity.NewUser{
 		Username:  "neu",
 		FirstName: "Neu",
 		LastName:  "User",
 		Email:     "neu@example.com",
-		Roles:     []string{identity.RoleReader},
+		Roles:     []string{roles.RoleReader},
 	}).Return(&createdUser, "temp-secret", nil).Once()
 	ident.EXPECT().DeleteUser(mock.Anything, admin.ID, admin.ID).Return(identity.ErrDeleteSelf).Once()
 	ident.EXPECT().DeleteUser(mock.Anything, admin.ID, createdUser.ID).Return(nil).Once()
@@ -100,7 +101,7 @@ func TestCreateAndDeleteUser(t *testing.T) {
 		"firstName": "Neu",
 		"lastName":  "User",
 		"email":     "neu@example.com",
-		"roles":     []string{identity.RoleReader},
+		"roles":     []string{roles.RoleReader},
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
@@ -129,12 +130,12 @@ func TestCreateAndDeleteUser(t *testing.T) {
 
 func TestUpdateAndResetUser(t *testing.T) {
 	ident := newMockIdentityService(t)
-	admin := identity.User{ID: "admin-id", Username: "admin", Roles: []string{identity.RoleAdmin}}
+	admin := identity.User{ID: "admin-id", Username: "admin", Roles: []string{roles.RoleAdmin}}
 	updatedUser := identity.User{
 		ID:        "clerk-id",
 		Username:  "klara",
 		FirstName: "Klara",
-		Roles:     []string{identity.RoleReader},
+		Roles:     []string{roles.RoleReader},
 	}
 	resetUser := updatedUser
 	resetUser.MustChangePassword = true
@@ -144,11 +145,11 @@ func TestUpdateAndResetUser(t *testing.T) {
 		FirstName: "Klara",
 		LastName:  "Berg",
 		Email:     "klara@example.com",
-		Roles:     []string{identity.RoleReader},
+		Roles:     []string{roles.RoleReader},
 	}).Return(&updatedUser, nil).Once()
 	ident.EXPECT().UpdateUser(mock.Anything, admin.ID, identity.UserPatch{
 		Username: "admin",
-		Roles:    []string{identity.RoleReader},
+		Roles:    []string{roles.RoleReader},
 	}).Return(nil, identity.ErrLastAdmin).Once()
 	ident.EXPECT().ResetPassword(mock.Anything, "clerk-id").
 		Return(&resetUser, "reset-secret", nil).Once()
@@ -160,7 +161,7 @@ func TestUpdateAndResetUser(t *testing.T) {
 		"firstName": "Klara",
 		"lastName":  "Berg",
 		"email":     "klara@example.com",
-		"roles":     []string{identity.RoleReader},
+		"roles":     []string{roles.RoleReader},
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/users/clerk-id", bytes.NewReader(body))
@@ -172,7 +173,7 @@ func TestUpdateAndResetUser(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &updated))
 	assert.Equal(t, "klara", updated.Username)
 	assert.Equal(t, "Klara", updated.FirstName)
-	assert.Equal(t, []string{identity.RoleReader}, updated.Roles)
+	assert.Equal(t, []string{roles.RoleReader}, updated.Roles)
 	assert.NotContains(t, rec.Body.String(), "password")
 
 	rec = httptest.NewRecorder()

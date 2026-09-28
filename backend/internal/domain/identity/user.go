@@ -39,26 +39,3 @@ type PasswordHasher interface {
 	Hash(password string) (string, error)
 	Verify(encodedHash, password string) error
 }
-
-// ValidRole reports whether role is one of the built-in RBAC roles.
-func ValidRole(role string) bool {
-	switch role {
-	case RoleAdmin, RoleArchivist, RoleClerk, RoleReader:
-		return true
-	default:
-		return false
-	}
-}
-
-// ValidateRoles returns ErrInvalidRole if any role is unknown.
-func ValidateRoles(roles []string) error {
-	if len(roles) == 0 {
-		return ErrInvalidRole
-	}
-	for _, r := range roles {
-		if !ValidRole(r) {
-			return ErrInvalidRole
-		}
-	}
-	return nil
-}
