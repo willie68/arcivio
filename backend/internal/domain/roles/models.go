@@ -2,6 +2,7 @@ package roles
 
 import "errors"
 
+// Role catalog failures.
 var (
 	ErrInvalidRole = errors.New("invalid role")
 )

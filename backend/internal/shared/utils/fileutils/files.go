@@ -6,8 +6,10 @@ import (
 	"strings"
 )
 
+// Callback reports whether GetFiles should keep reading. false stops the walk.
 type Callback func(fileinfo fs.DirEntry) bool
 
+// GetFiles reads rootpath and calls callback for each entry whose name does not start with prefix.
 func GetFiles(rootpath, prefix string, callback Callback) error {
 	infos, err := os.ReadDir(rootpath)
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // register the database/sql driver
 )
 
 // Store is an embedded SQLite database used as metadata cache.

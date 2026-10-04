@@ -4,7 +4,7 @@ Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeV
 
 ## Aktueller Stand (2026-10-04)
 
-**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer, Rollen, Feldgruppen und Typen sind da. Ablagen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer-, Rollen-, Feldgruppen- und Dokumenttypen-API prüfen die Rolle `admin`.
+**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer, Rollen, Feldgruppen und Typen sind da. Ablagen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer-, Rollen-, Feldgruppen- und Dokumenttypen-API prüfen die Rolle `admin`. Die Go-Tests decken die Fehlerpfade dieser APIs ab. `revive` mit `backend/revive.toml` meldet keine Warnungen.
 
 Vorhanden:
 
@@ -49,6 +49,7 @@ Nächster Schritt: **Ablagen** (anlegen, Pfad, optionales Masterpasswort nur bei
 - [ ] Settings-Masken live ohne Save (Benutzer, Rollen, Feldgruppen und Typen sind da; Ablagen und externe Systeme fehlen)
 - [x] Feldgruppen-CRUD: Instanz-SQLite `field_groups`, API `/api/v1/field-groups`, Einstellungsblatt unter Dokumenttypen
 - [x] Dokumenttypen-CRUD: Instanz-SQLite `document_types`, API `/api/v1/document-types`, geordnete Feldgruppen-IDs; eine benutzte Feldgruppe lässt sich nicht löschen
+- [x] Backend-Tests für die Fehlerpfade von Dokumenttypen, Feldgruppen, Benutzern und IdP; revive ohne Warnungen
 - [ ] Ablagen (Stores): selbsttragendes Verzeichnis pro Ablage, Default-Store beim ersten Start, optionales Masterpasswort nur bei Anlage
 - [ ] RBAC an der API durchsetzen (Benutzer-API prüft `admin`; Permissions `document.create` etc. fehlen)
 - [ ] Dokumenttypen: Typ als geordnete Zusammensetzung von Feldgruppen; Felder archival vs. fluid; Zuordnung Typ↔Ablage n:m; Typkopie (aufgelöstes Schema) in der Ablage beim ersten Ablegen
@@ -621,7 +622,7 @@ Erledigt:
 7. Benutzer-Maske: Tabelle, Präfixfilter, Sortierung, Anlegen, Bearbeiten, Löschen; Rollen als Anzeigenamen, ohne Spalte Passwortwechsel; Hilfe einklappbar; Konto-Dialog mit Profilfeldern
 8. Rollen-Maske: Katalog aus `GET /api/v1/roles` (technischer Name, Labels de/en); selektierte Zeile zeigt die Beschreibung in der Hilfespalte. Fehlende Admin-Rolle: Hinweis auf der Seite, kein Login-Redirect
 
-Offen in dieser Phase: übrige Settings-Masken (Ablagen, externe Systeme). Feldgruppen- und Dokumenttypen-CRUD sind da.
+Offen in dieser Phase: übrige Settings-Masken (Ablagen, externe Systeme). Feldgruppen- und Dokumenttypen-CRUD sind da. Die Go-Tests decken die Fehlerpfade der vorhandenen APIs ab; revive ist ohne Warnungen.
 
 Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus wie dasselbe Produkt.
 

@@ -10,6 +10,7 @@ import (
 	"github.com/willie68/arcivio/internal/config"
 )
 
+// Default OIDC client settings for the built-in web app.
 const (
 	DefaultClientID  = "arcivio-web"
 	DefaultLoginPath = "/login"
@@ -72,45 +73,62 @@ func ConfigFrom(cfg config.Config) Config {
 	return c
 }
 
+type redirectSet struct {
+	seen map[string]struct{}
+	out  []string
+}
+
+func (s *redirectSet) add(raw string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return
+	}
+	if u.Path == "" || u.Path == "/" {
+		u.Path = "/callback"
+	}
+	normalized := u.String()
+	if _, ok := s.seen[normalized]; ok {
+		return
+	}
+	s.seen[normalized] = struct{}{}
+	s.out = append(s.out, normalized)
+}
+
+func addConfiguredRedirects(set *redirectSet, props map[string]any) {
+	v, ok := props["redirectURIs"]
+	if !ok {
+		return
+	}
+	switch list := v.(type) {
+	case []any:
+		for _, item := range list {
+			if s, ok := item.(string); ok {
+				set.add(s)
+			}
+		}
+	case []string:
+		for _, s := range list {
+			set.add(s)
+		}
+	}
+}
+
+func addHostCallbacks(set *redirectSet, scheme string, port int, hosts []string) {
+	for _, host := range hosts {
+		set.add(fmt.Sprintf("%s://%s:%d/callback", scheme, host, port))
+	}
+}
+
 func collectRedirectURIs(cfg config.Config, props map[string]any) []string {
-	seen := make(map[string]struct{})
-	var out []string
-	add := func(raw string) {
-		raw = strings.TrimSpace(raw)
-		if raw == "" {
-			return
-		}
-		u, err := url.Parse(raw)
-		if err != nil || u.Scheme == "" || u.Host == "" {
-			return
-		}
-		if u.Path == "" || u.Path == "/" {
-			u.Path = "/callback"
-		}
-		s := u.String()
-		if _, ok := seen[s]; ok {
-			return
-		}
-		seen[s] = struct{}{}
-		out = append(out, s)
+	set := &redirectSet{seen: map[string]struct{}{}}
+	if props != nil {
+		addConfiguredRedirects(set, props)
 	}
-
-	if v, ok := props["redirectURIs"]; ok {
-		switch list := v.(type) {
-		case []any:
-			for _, item := range list {
-				if s, ok := item.(string); ok {
-					add(s)
-				}
-			}
-		case []string:
-			for _, s := range list {
-				add(s)
-			}
-		}
-	}
-
-	add(strings.TrimRight(cfg.HTTP.ServiceURL, "/") + "/callback")
+	set.add(strings.TrimRight(cfg.HTTP.ServiceURL, "/") + "/callback")
 	port := cfg.HTTP.Sslport
 	if port <= 0 {
 		port = cfg.HTTP.Port
@@ -119,16 +137,10 @@ func collectRedirectURIs(cfg config.Config, props map[string]any) []string {
 	if cfg.HTTP.Sslport <= 0 {
 		scheme = "http"
 	}
-	for _, host := range cfg.HTTP.DNSNames {
-		add(fmt.Sprintf("%s://%s:%d/callback", scheme, host, port))
-	}
-	for _, ip := range cfg.HTTP.IPAddresses {
-		add(fmt.Sprintf("%s://%s:%d/callback", scheme, ip, port))
-	}
-	for _, host := range []string{"localhost", "127.0.0.1", "[::1]"} {
-		add(fmt.Sprintf("http://%s:5173/callback", host))
-	}
-	return out
+	addHostCallbacks(set, scheme, port, cfg.HTTP.DNSNames)
+	addHostCallbacks(set, scheme, port, cfg.HTTP.IPAddresses)
+	addHostCallbacks(set, "http", 5173, []string{"localhost", "127.0.0.1", "[::1]"})
+	return set.out
 }
 
 func optionalString(props map[string]any, key, def string) string {
@@ -169,6 +181,7 @@ func optionalDurationSeconds(props map[string]any, key string, def time.Duration
 	return time.Duration(n) * time.Second
 }
 
+// AllowsRedirect reports whether uri is registered or a local Vite dev callback.
 func (c Config) AllowsRedirect(uri string) bool {
 	uri = strings.TrimSpace(uri)
 	for _, allowed := range c.RedirectURIs {

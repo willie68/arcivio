@@ -134,6 +134,39 @@ func TestUserRepoProfileAndUniqueLoginName(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestUserRepoDeleteAndCountRole(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "id.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	require.NoError(t, repo.Create(context.Background(), identity.User{
+		ID: "a", Username: "admin", PasswordHash: "hash", Roles: []string{roles.RoleAdmin}, CreatedAt: now, UpdatedAt: now,
+	}))
+	require.NoError(t, repo.Create(context.Background(), identity.User{
+		ID: "r", Username: "reader", PasswordHash: "hash", Roles: []string{roles.RoleReader, roles.RoleClerk}, CreatedAt: now, UpdatedAt: now,
+	}))
+
+	n, err := repo.CountWithRole(context.Background(), roles.RoleAdmin)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+	n, err = repo.CountWithRole(context.Background(), roles.RoleClerk)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+
+	require.NoError(t, repo.Delete(context.Background(), "r"))
+	assert.ErrorIs(t, repo.Delete(context.Background(), "r"), identity.ErrUserNotFound)
+	_, err = repo.GetByID(context.Background(), "missing")
+	assert.ErrorIs(t, err, identity.ErrUserNotFound)
+
+	_, err = repo.db.Exec(`INSERT INTO users (id, username, password_hash, roles, created_at, updated_at) VALUES ('bad', 'bad', 'h', 'not-json', 't', 't')`)
+	require.NoError(t, err)
+	_, err = repo.CountWithRole(context.Background(), roles.RoleAdmin)
+	assert.Error(t, err)
+}
+
 func TestUserRepoRecordLastLogin(t *testing.T) {
 	st, err := storesqlite.New(filepath.Join(t.TempDir(), "id.db"))
 	require.NoError(t, err)

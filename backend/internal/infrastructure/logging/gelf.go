@@ -15,6 +15,7 @@ import (
 	sloggraylog "github.com/samber/slog-graylog/v2"
 )
 
+// GELF wire protocols.
 const (
 	GELFProtocolUDP = "udp"
 	GELFProtocolTCP = "tcp"

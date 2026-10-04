@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -192,6 +194,25 @@ func TestUpdateAndResetUser(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &reset))
 	assert.Equal(t, "reset-secret", reset.Password)
 	assert.True(t, reset.User.MustChangePassword)
+}
+
+func TestUserErrorMapping(t *testing.T) {
+	cases := []error{
+		identity.ErrAlreadyExists,
+		identity.ErrUserNotFound,
+		identity.ErrDeleteSelf,
+		identity.ErrLastAdmin,
+		identity.ErrInvalidRole,
+		identity.ErrInvalidEmail,
+		fmt.Errorf("username required"),
+		errors.New("db down"),
+	}
+	for _, err := range cases {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		writeUserError(rec, req, err)
+		assert.NotEqual(t, http.StatusOK, rec.Code, err.Error())
+	}
 }
 
 func asUser(req *http.Request, userID string) *http.Request {

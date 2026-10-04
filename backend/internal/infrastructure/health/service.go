@@ -71,7 +71,7 @@ func (h *Service) Init(inj do.Injector) error {
 	return nil
 }
 
-// checking if the health system (namly the timer task) is working or stopped
+// CheckHealthCheckTimer marks the service unready when the timer has stopped.
 func (h *Service) CheckHealthCheckTimer() {
 	t := time.Now()
 	h.reg.Lock()
@@ -162,27 +162,28 @@ func (h *Service) doCheck(inj do.Injector) {
 	h.reg.Unlock()
 }
 
-// Healthy return the actual health state
+// Healthyz reports whether the last health pass succeeded.
 func (h *Service) Healthyz() bool {
 	h.reg.Lock()
 	defer h.reg.Unlock()
 	return h.healthy
 }
 
-// Healthy return the actual health state
+// Readyz reports whether the service is ready for traffic.
 func (h *Service) Readyz() bool {
 	h.reg.Lock()
 	defer h.reg.Unlock()
 	return h.readyz
 }
 
-// Healthy return the actual health state
+// LastChecked is the time of the last health pass.
 func (h *Service) LastChecked() time.Time {
 	h.reg.Lock()
 	defer h.reg.Unlock()
 	return h.lastChecked
 }
 
+// Healthy is the read side of the health system.
 type Healthy interface {
 	Healthyz() bool
 	Readyz() bool
@@ -191,6 +192,7 @@ type Healthy interface {
 	CheckHealthCheckTimer()
 }
 
+// ServiceName names the process for health pages.
 type ServiceName interface {
 	ServiceName() string
 }
@@ -266,6 +268,7 @@ func (h *Handler) HeadReadinessEndpoint(response http.ResponseWriter, req *http.
 	render.NoContent(response, req)
 }
 
+// GetDefaultEndpoint writes a short HTML page that the HTTP server is up.
 func (h *Handler) GetDefaultEndpoint(response http.ResponseWriter, request *http.Request) {
 	render.HTML(response, request, fmt.Sprintf("<b>%s</b>: http-server up and running!", h.serviceName.ServiceName()))
 }

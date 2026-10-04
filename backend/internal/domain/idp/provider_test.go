@@ -2,6 +2,7 @@ package idp
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"testing"
 	"time"
@@ -53,6 +54,35 @@ func readyAdmin() *identity.User {
 func pkcePair() (verifier, challenge string) {
 	verifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~ab"
 	return verifier, challengeS256(verifier)
+}
+
+func TestConfigAndClaimHelpers(t *testing.T) {
+	p, _ := newTestIDP(t)
+	assert.Equal(t, "https://arcivio.test/auth", p.Config().Issuer)
+	assert.NotNil(t, p.JWKS())
+
+	assert.True(t, audienceMatches(DefaultClientID, DefaultClientID))
+	assert.True(t, audienceMatches([]any{"other", DefaultClientID}, DefaultClientID))
+	assert.False(t, audienceMatches([]any{1}, DefaultClientID))
+	assert.False(t, audienceMatches(1, DefaultClientID))
+
+	want := time.Unix(100, 0)
+	got, ok := claimTime(float64(100))
+	assert.True(t, ok)
+	assert.True(t, got.Equal(want))
+	got, ok = claimTime(int64(100))
+	assert.True(t, ok)
+	assert.True(t, got.Equal(want))
+	got, ok = claimTime(100)
+	assert.True(t, ok)
+	assert.True(t, got.Equal(want))
+	got, ok = claimTime(json.Number("100"))
+	assert.True(t, ok)
+	assert.True(t, got.Equal(want))
+	_, ok = claimTime(json.Number("nope"))
+	assert.False(t, ok)
+	_, ok = claimTime("100")
+	assert.False(t, ok)
 }
 
 func TestAuthorizeRequiresPKCE(t *testing.T) {

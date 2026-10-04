@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -69,6 +70,75 @@ func TestCreateListAndDelete(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
+func TestGetUpdateAndInUse(t *testing.T) {
+	store := &memGroups{groups: map[string]fieldgroup.Group{}}
+	svc := fieldgroup.New(store)
+	svc.BindUsage(alwaysUsed{})
+	h := &Handler{groups: svc, roles: stubRoles{}}
+
+	body := []byte(`{"name":"beleg","fields":[{"name":"amount","valueType":"decimal"}]}`)
+	rec := httptest.NewRecorder()
+	h.Create(rec, adminJSON(http.MethodPost, "/api/v1/field-groups", body, ""))
+	require.Equal(t, http.StatusCreated, rec.Code)
+	var created GroupResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
+
+	rec = httptest.NewRecorder()
+	h.Get(rec, adminJSON(http.MethodGet, "/api/v1/field-groups/"+created.ID, nil, created.ID))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	rec = httptest.NewRecorder()
+	h.Update(rec, adminJSON(http.MethodPut, "/api/v1/field-groups/"+created.ID, []byte(`{"name":"parties","fields":[]}`), created.ID))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	rec = httptest.NewRecorder()
+	h.Delete(rec, adminJSON(http.MethodDelete, "/api/v1/field-groups/"+created.ID, nil, created.ID))
+	assert.Equal(t, http.StatusConflict, rec.Code)
+}
+
+func TestGroupErrorMapping(t *testing.T) {
+	h := &Handler{groups: stubGroups{}, roles: stubRoles{}}
+	rec := httptest.NewRecorder()
+	h.Create(rec, adminJSON(http.MethodPost, "/api/v1/field-groups", []byte(`{`), ""))
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	rec = httptest.NewRecorder()
+	h.Create(rec, adminJSON(http.MethodPost, "/api/v1/field-groups", []byte(`{"name":"beleg"}`), ""))
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	rec = httptest.NewRecorder()
+	h.Get(rec, adminJSON(http.MethodGet, "/api/v1/field-groups/missing", nil, "missing"))
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	rec = httptest.NewRecorder()
+	h.Update(rec, adminJSON(http.MethodPut, "/api/v1/field-groups/missing", []byte(`{"name":"beleg"}`), "missing"))
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	h = &Handler{groups: boomGroups{}, roles: stubRoles{}}
+	rec = httptest.NewRecorder()
+	h.Get(rec, adminJSON(http.MethodGet, "/api/v1/field-groups/x", nil, "x"))
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	store := &memGroups{groups: map[string]fieldgroup.Group{}}
+	h = &Handler{groups: fieldgroup.New(store), roles: stubRoles{}}
+	rec = httptest.NewRecorder()
+	h.Create(rec, adminJSON(http.MethodPost, "/api/v1/field-groups", []byte(`{"name":"beleg"}`), ""))
+	require.Equal(t, http.StatusCreated, rec.Code)
+	rec = httptest.NewRecorder()
+	h.Create(rec, adminJSON(http.MethodPost, "/api/v1/field-groups", []byte(`{"name":"beleg"}`), ""))
+	assert.Equal(t, http.StatusConflict, rec.Code)
+}
+
+func adminJSON(method, target string, body []byte, id string) *http.Request {
+	req := httptest.NewRequest(method, target, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = asUser(req, roles.RoleAdmin)
+	if id != "" {
+		req = withURLParam(req, "id", id)
+	}
+	return req
+}
+
 func asUser(req *http.Request, roleNames ...string) *http.Request {
 	claimed := make([]any, len(roleNames))
 	for i, name := range roleNames {
@@ -105,6 +175,26 @@ func (stubGroups) Update(context.Context, string, fieldgroup.Input) (*fieldgroup
 	return nil, fieldgroup.ErrNotFound
 }
 func (stubGroups) Delete(context.Context, string) error { return fieldgroup.ErrNotFound }
+
+type boomGroups struct{}
+
+func (boomGroups) List(context.Context) ([]fieldgroup.Group, error) {
+	return nil, errors.New("db down")
+}
+func (boomGroups) Get(context.Context, string) (*fieldgroup.Group, error) {
+	return nil, errors.New("db down")
+}
+func (boomGroups) Create(context.Context, fieldgroup.Input) (*fieldgroup.Group, error) {
+	return nil, errors.New("db down")
+}
+func (boomGroups) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.Group, error) {
+	return nil, errors.New("db down")
+}
+func (boomGroups) Delete(context.Context, string) error { return errors.New("db down") }
+
+type alwaysUsed struct{}
+
+func (alwaysUsed) UsesGroup(context.Context, string) (bool, error) { return true, nil }
 
 type memGroups struct {
 	groups map[string]fieldgroup.Group

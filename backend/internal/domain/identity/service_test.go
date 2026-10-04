@@ -18,130 +18,165 @@ func userStore(t *testing.T) *mockUserStore {
 	st := newMockUserStore(t)
 	users := map[string]User{}
 	var mu sync.Mutex
-
 	st.EXPECT().Count(mock.Anything).RunAndReturn(func(context.Context) (int, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		return len(users), nil
+		return countLocked(&mu, users), nil
 	}).Maybe()
 	st.EXPECT().GetByID(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) (*User, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		for _, u := range users {
-			if u.ID == id {
-				cp := u
-				return &cp, nil
-			}
-		}
-		return nil, ErrUserNotFound
+		return userByID(&mu, users, id)
 	}).Maybe()
 	st.EXPECT().GetByUsername(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, username string) (*User, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		u, ok := users[username]
-		if !ok {
-			return nil, ErrUserNotFound
-		}
-		cp := u
-		return &cp, nil
+		return userByName(&mu, users, username)
 	}).Maybe()
 	st.EXPECT().Create(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, user User) error {
-		mu.Lock()
-		defer mu.Unlock()
-		if _, ok := users[user.Username]; ok {
-			return ErrAlreadyExists
-		}
-		users[user.Username] = user
-		return nil
+		return insertUser(&mu, users, user)
 	}).Maybe()
 	st.EXPECT().Update(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, user User) error {
-		mu.Lock()
-		defer mu.Unlock()
-		oldKey := ""
-		for key, existing := range users {
-			if existing.ID == user.ID {
-				oldKey = key
-				break
-			}
-		}
-		if oldKey == "" {
-			return ErrUserNotFound
-		}
-		if other, ok := users[user.Username]; ok && other.ID != user.ID {
-			return ErrAlreadyExists
-		}
-		if oldKey != user.Username {
-			delete(users, oldKey)
-		}
-		users[user.Username] = user
-		return nil
+		return replaceUser(&mu, users, user)
 	}).Maybe()
 	st.EXPECT().Delete(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) error {
-		mu.Lock()
-		defer mu.Unlock()
-		for key, u := range users {
-			if u.ID == id {
-				delete(users, key)
-				return nil
-			}
-		}
-		return ErrUserNotFound
+		return deleteUser(&mu, users, id)
 	}).Maybe()
 	st.EXPECT().CountWithRole(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, role string) (int, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		n := 0
-		for _, u := range users {
-			if HasRole(&u, role) {
-				n++
-			}
-		}
-		return n, nil
+		return countRole(&mu, users, role)
 	}).Maybe()
 	st.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
 		func(_ context.Context, offset, limit int, sortField string, desc bool, prefix string) ([]User, int, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			all := make([]User, 0, len(users))
-			for _, u := range users {
-				if MatchPrefix(u, prefix) {
-					all = append(all, u)
-				}
-			}
-			sortUsers(all, sortField, desc)
-			total := len(all)
-			if offset > total {
-				offset = total
-			}
-			end := offset + limit
-			if end > total {
-				end = total
-			}
-			return append([]User(nil), all[offset:end]...), total, nil
+			return listUsers(&mu, users, offset, limit, sortField, desc, prefix)
 		},
 	).Maybe()
 	st.EXPECT().RecordLastLogin(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, userID string, at time.Time) error {
-		mu.Lock()
-		defer mu.Unlock()
-		for key, u := range users {
-			if u.ID == userID {
-				loggedIn := at
-				u.LastLogin = &loggedIn
-				users[key] = u
-				return nil
-			}
-		}
-		return ErrUserNotFound
+		return stampLogin(&mu, users, userID, at)
 	}).Maybe()
 	return st
+}
+
+func countLocked(mu *sync.Mutex, users map[string]User) int {
+	mu.Lock()
+	defer mu.Unlock()
+	return len(users)
+}
+
+func userByID(mu *sync.Mutex, users map[string]User, id string) (*User, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, u := range users {
+		if u.ID == id {
+			cp := u
+			return &cp, nil
+		}
+	}
+	return nil, ErrUserNotFound
+}
+
+func userByName(mu *sync.Mutex, users map[string]User, username string) (*User, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	u, ok := users[username]
+	if !ok {
+		return nil, ErrUserNotFound
+	}
+	cp := u
+	return &cp, nil
+}
+
+func insertUser(mu *sync.Mutex, users map[string]User, user User) error {
+	mu.Lock()
+	defer mu.Unlock()
+	if _, ok := users[user.Username]; ok {
+		return ErrAlreadyExists
+	}
+	users[user.Username] = user
+	return nil
+}
+
+func replaceUser(mu *sync.Mutex, users map[string]User, user User) error {
+	mu.Lock()
+	defer mu.Unlock()
+	oldKey := ""
+	for key, existing := range users {
+		if existing.ID == user.ID {
+			oldKey = key
+			break
+		}
+	}
+	if oldKey == "" {
+		return ErrUserNotFound
+	}
+	if other, ok := users[user.Username]; ok && other.ID != user.ID {
+		return ErrAlreadyExists
+	}
+	if oldKey != user.Username {
+		delete(users, oldKey)
+	}
+	users[user.Username] = user
+	return nil
+}
+
+func deleteUser(mu *sync.Mutex, users map[string]User, id string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	for key, u := range users {
+		if u.ID == id {
+			delete(users, key)
+			return nil
+		}
+	}
+	return ErrUserNotFound
+}
+
+func countRole(mu *sync.Mutex, users map[string]User, role string) (int, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	n := 0
+	for _, u := range users {
+		if HasRole(&u, role) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func listUsers(mu *sync.Mutex, users map[string]User, offset, limit int, sortField string, desc bool, prefix string) ([]User, int, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	all := make([]User, 0, len(users))
+	for _, u := range users {
+		if MatchPrefix(u, prefix) {
+			all = append(all, u)
+		}
+	}
+	sortUsers(all, sortField, desc)
+	total := len(all)
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return append([]User(nil), all[offset:end]...), total, nil
+}
+
+func stampLogin(mu *sync.Mutex, users map[string]User, userID string, at time.Time) error {
+	mu.Lock()
+	defer mu.Unlock()
+	for key, u := range users {
+		if u.ID == userID {
+			loggedIn := at
+			u.LastLogin = &loggedIn
+			users[key] = u
+			return nil
+		}
+	}
+	return ErrUserNotFound
 }
 
 // rolesMock is the generated roles service. ValidateRoles follows the real catalog.
 func rolesMock(t *testing.T) *mockRolesService {
 	t.Helper()
-	real := roles.NewService()
+	catalog := roles.NewService()
 	rs := newMockRolesService(t)
-	rs.EXPECT().ValidateRoles(mock.Anything).RunAndReturn(real.ValidateRoles).Maybe()
+	rs.EXPECT().ValidateRoles(mock.Anything).RunAndReturn(catalog.ValidateRoles).Maybe()
 	return rs
 }
 
@@ -364,6 +399,29 @@ func TestUpdateProfileLeavesLoginAndRoles(t *testing.T) {
 	assert.Equal(t, "ida@example.com", updated.Email)
 	_, err = svc.UpdateProfile(context.Background(), u.ID, ProfilePatch{Email: "keine-mail"})
 	assert.ErrorIs(t, err, ErrInvalidEmail)
+}
+
+func TestDeleteUserRules(t *testing.T) {
+	st := userStore(t)
+	svc := New(st, testHasher(), rolesMock(t))
+	assert.ErrorIs(t, svc.DeleteUser(context.Background(), "actor", ""), ErrUserNotFound)
+
+	_, err := svc.Bootstrap(context.Background())
+	require.NoError(t, err)
+	admin, err := st.GetByUsername(context.Background(), "admin")
+	require.NoError(t, err)
+	assert.ErrorIs(t, svc.DeleteUser(context.Background(), admin.ID, admin.ID), ErrDeleteSelf)
+	assert.ErrorIs(t, svc.DeleteUser(context.Background(), "other", admin.ID), ErrLastAdmin)
+
+	clerk, _, err := svc.CreateUser(context.Background(), NewUser{Username: "clerk1", Roles: []string{roles.RoleClerk}})
+	require.NoError(t, err)
+	require.NoError(t, svc.DeleteUser(context.Background(), admin.ID, clerk.ID))
+	_, err = st.GetByID(context.Background(), clerk.ID)
+	assert.ErrorIs(t, err, ErrUserNotFound)
+
+	second, _, err := svc.CreateUser(context.Background(), NewUser{Username: "admin2", Roles: []string{roles.RoleAdmin}})
+	require.NoError(t, err)
+	require.NoError(t, svc.DeleteUser(context.Background(), admin.ID, second.ID))
 }
 
 func TestResetPasswordForcesChange(t *testing.T) {

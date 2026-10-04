@@ -2,12 +2,28 @@ package fieldgroup
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValueTypesAndEmptyList(t *testing.T) {
+	assert.Equal(t, []string{"bool", "int", "decimal", "double", "text", "multiline", "datetime"}, ValueTypes())
+	for _, valueType := range ValueTypes() {
+		assert.True(t, ValidValueType(valueType))
+	}
+
+	svc := New(&memStore{groups: map[string]Group{}, listNil: true})
+	listed, err := svc.List(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, listed)
+	_, err = svc.Get(context.Background(), " ")
+	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, svc.Delete(context.Background(), "missing"), ErrNotFound)
+}
 
 func TestCreateRejectsDuplicateFieldNames(t *testing.T) {
 	svc := New(newMemStore())
@@ -103,6 +119,16 @@ func (f usageFunc) UsesGroup(_ context.Context, groupID string) (bool, error) {
 	return f(groupID)
 }
 
+func TestDeleteUsageError(t *testing.T) {
+	svc := New(newMemStore())
+	created, err := svc.Create(context.Background(), Input{Name: "beleg"})
+	require.NoError(t, err)
+	svc.BindUsage(usageFunc(func(string) (bool, error) {
+		return false, errors.New("usage down")
+	}))
+	assert.EqualError(t, svc.Delete(context.Background(), created.ID), "usage down")
+}
+
 func TestDelete(t *testing.T) {
 	svc := New(newMemStore())
 	created, err := svc.Create(context.Background(), Input{Name: "beleg"})
@@ -114,7 +140,8 @@ func TestDelete(t *testing.T) {
 }
 
 type memStore struct {
-	groups map[string]Group
+	groups  map[string]Group
+	listNil bool
 }
 
 func newMemStore() *memStore {
@@ -122,6 +149,10 @@ func newMemStore() *memStore {
 }
 
 func (m *memStore) List(context.Context) ([]Group, error) {
+	if m.listNil {
+		m.listNil = false
+		return nil, nil
+	}
 	out := make([]Group, 0, len(m.groups))
 	for _, group := range m.groups {
 		out = append(out, group)

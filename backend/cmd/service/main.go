@@ -35,6 +35,7 @@ var (
 	c             = make(chan os.Signal, 1)
 )
 
+// SHttp is the HTTP server lifecycle driven by main.
 type SHttp interface {
 	StartServers(router, healthRouter *chi.Mux)
 	ShutdownServers()

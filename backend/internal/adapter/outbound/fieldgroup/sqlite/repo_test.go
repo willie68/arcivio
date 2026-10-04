@@ -50,6 +50,14 @@ func TestFieldGroupRepoCRUD(t *testing.T) {
 	require.Len(t, listed, 1)
 	assert.Equal(t, "parties", listed[0].Name)
 
+	byID, err := repo.GetByID(context.Background(), "fg1")
+	require.NoError(t, err)
+	assert.Equal(t, "parties", byID.Name)
+	err = repo.Update(context.Background(), fieldgroup.Group{ID: "missing", Name: "other"})
+	assert.ErrorIs(t, err, fieldgroup.ErrNotFound)
+	err = repo.Delete(context.Background(), "missing")
+	assert.ErrorIs(t, err, fieldgroup.ErrNotFound)
+
 	require.NoError(t, repo.Delete(context.Background(), "fg1"))
 	_, err = repo.GetByID(context.Background(), "fg1")
 	assert.ErrorIs(t, err, fieldgroup.ErrNotFound)

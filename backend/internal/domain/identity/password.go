@@ -39,7 +39,7 @@ func newArgon2Hasher() *argon2Hasher {
 }
 
 // NewArgon2HasherWithParams is intended for tests with cheaper parameters.
-func NewArgon2HasherWithParams(time, memory uint32, threads uint8, keyLen, saltLen uint32) *argon2Hasher {
+func NewArgon2HasherWithParams(time, memory uint32, threads uint8, keyLen, saltLen uint32) PasswordHasher {
 	return &argon2Hasher{
 		time:    time,
 		memory:  memory,

@@ -96,7 +96,7 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 
 	logger.Info(fmt.Sprintf("%s api routes", config.Servicename))
 
-	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+	walkFunc := func(method string, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		logger.Info(fmt.Sprintf("api route: %s %s", method, route))
 		return nil
 	}
@@ -175,7 +175,7 @@ func HealthRoutes(inj do.Injector, cfn config.Config) *chi.Mux {
 	})
 
 	logger.Info("health api routes")
-	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+	walkFunc := func(method string, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		logger.Info(fmt.Sprintf("health route: %s %s", method, route))
 		return nil
 	}
@@ -186,7 +186,7 @@ func HealthRoutes(inj do.Injector, cfn config.Config) *chi.Mux {
 	return router
 }
 
-func serveSPAIndex(w http.ResponseWriter, r *http.Request) {
+func serveSPAIndex(w http.ResponseWriter, _ *http.Request) {
 	data, err := web.WebClientAssets.ReadFile("client/index.html")
 	if err != nil {
 		http.Error(w, "spa not embedded", http.StatusInternalServerError)

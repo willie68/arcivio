@@ -1,7 +1,11 @@
 package shttp
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,7 +26,7 @@ func TestProvideAndLifecycle(t *testing.T) {
 	assert.False(t, sh.Started())
 
 	router := chi.NewRouter()
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	sh.StartServers(router, router)
@@ -55,4 +59,52 @@ func TestStartHTTPSGeneratedCert(t *testing.T) {
 	time.Sleep(80 * time.Millisecond)
 	assert.True(t, sh.Started())
 	sh.ShutdownServers()
+}
+
+func TestTLSGenerationAndFiles(t *testing.T) {
+	gc := &generateCertificate{
+		ServiceName: "arcivio",
+		Host:        "localhost,127.0.0.1",
+		IPs:         []string{"127.0.0.1", "not-an-ip"},
+		DNSnames:    []string{"arcivio.local"},
+		ValidFor:    time.Hour,
+		EcdsaCurve:  "P256",
+		IsCA:        true,
+	}
+	cfg, err := gc.GenerateTLSConfig()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, cfg.Certificates)
+
+	gc.EcdsaCurve = ""
+	gc.Ed25519Key = true
+	_, err = gc.GenerateTLSConfig()
+	assert.NoError(t, err)
+
+	gc.Ed25519Key = false
+	gc.ValidFrom = "not-a-date"
+	_, err = gc.GenerateTLSConfig()
+	assert.Error(t, err)
+
+	gc.ValidFrom = ""
+	gc.EcdsaCurve = "nope"
+	bad, _ := gc.GenerateTLSConfig()
+	assert.Nil(t, bad)
+	assert.Nil(t, gc.publicKey("not-a-key"))
+
+	dir := t.TempDir()
+	certFile := filepath.Join(dir, "cert.pem")
+	keyFile := filepath.Join(dir, "key.pem")
+	sh := &SHttp{cfn: Config{Certificate: certFile, Key: keyFile}}
+	_, err = sh.TLSFromFiles()
+	assert.Error(t, err)
+
+	pair, err := (&generateCertificate{ServiceName: "arcivio", Host: "localhost", ValidFor: time.Hour, EcdsaCurve: "P256"}).GenerateTLSConfig()
+	assert.NoError(t, err)
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(pair.Certificates[0].PrivateKey)
+	assert.NoError(t, err)
+	assert.NoError(t, os.WriteFile(certFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: pair.Certificates[0].Certificate[0]}), 0o600))
+	assert.NoError(t, os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes}), 0o600))
+	loaded, err := sh.TLSFromFiles()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, loaded.Certificates)
 }

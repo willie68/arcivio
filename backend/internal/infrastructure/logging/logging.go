@@ -47,51 +47,68 @@ func Init(cfg Config, service string) {
 		if service == "" {
 			service = "arcivio"
 		}
-		lvl := slog.LevelInfo
-		if cfg.Level != "" {
-			_ = lvl.UnmarshalText([]byte(cfg.Level))
-		}
+		lvl := logLevel(cfg.Level)
 		hnds := []slog.Handler{
 			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}),
 		}
-		if cfg.Filename != "" {
-			hnds = append(hnds, slog.NewTextHandler(&lumberjack.Logger{
-				Filename:   cfg.Filename,
-				MaxSize:    1,
-				MaxBackups: 3,
-				MaxAge:     28,
-				Compress:   true,
-			}, &slog.HandlerOptions{Level: lvl}))
-		}
-		if cfg.GelfURL != "" {
-			addr := fmt.Sprintf("%s:%d", cfg.GelfURL, cfg.GelfPort)
-			if strings.EqualFold(cfg.GelfProtocol, GELFProtocolTCP) {
-				hnds = append(hnds, newGelfTCPHandler(addr, lvl))
-			} else {
-				gelfWriter, err := gelf.NewWriter(addr)
-				if err != nil {
-					log.Printf("warn: gelf writer: %v", err)
-				} else {
-					gelfWriter.CompressionType = gelf.CompressGzip
-
-					hnds = append(hnds, sloggraylog.Option{
-						Level:     lvl,
-						Writer:    gelfWriter,
-						Converter: gelfExtraConverter,
-					}.NewGraylogHandler())
-				}
-			}
-		}
-		if cfg.VictoriaLogsURL != "" {
-			handler := newVictoriaLogsHandler(
-				cfg.VictoriaLogsURL, // VictoriaLogs base URL
-				map[string]any{"service.name": service, "service.instance": hostname},
-			)
-			hnds = append(hnds, handler)
-		}
+		hnds = appendFileHandler(hnds, cfg, lvl)
+		hnds = appendGelfHandler(hnds, cfg, lvl)
+		hnds = appendVictoriaHandler(hnds, cfg, service, hostname)
 		Root = slog.New(slogmulti.Fanout(hnds...)).With("service", service)
 		slog.SetDefault(Root)
 	})
+}
+
+func logLevel(raw string) slog.Level {
+	lvl := slog.LevelInfo
+	if raw != "" {
+		_ = lvl.UnmarshalText([]byte(raw))
+	}
+	return lvl
+}
+
+func appendFileHandler(hnds []slog.Handler, cfg Config, lvl slog.Level) []slog.Handler {
+	if cfg.Filename == "" {
+		return hnds
+	}
+	return append(hnds, slog.NewTextHandler(&lumberjack.Logger{
+		Filename:   cfg.Filename,
+		MaxSize:    1,
+		MaxBackups: 3,
+		MaxAge:     28,
+		Compress:   true,
+	}, &slog.HandlerOptions{Level: lvl}))
+}
+
+func appendGelfHandler(hnds []slog.Handler, cfg Config, lvl slog.Level) []slog.Handler {
+	if cfg.GelfURL == "" {
+		return hnds
+	}
+	addr := fmt.Sprintf("%s:%d", cfg.GelfURL, cfg.GelfPort)
+	if strings.EqualFold(cfg.GelfProtocol, GELFProtocolTCP) {
+		return append(hnds, newGelfTCPHandler(addr, lvl))
+	}
+	gelfWriter, err := gelf.NewWriter(addr)
+	if err != nil {
+		log.Printf("warn: gelf writer: %v", err)
+		return hnds
+	}
+	gelfWriter.CompressionType = gelf.CompressGzip
+	return append(hnds, sloggraylog.Option{
+		Level:     lvl,
+		Writer:    gelfWriter,
+		Converter: gelfExtraConverter,
+	}.NewGraylogHandler())
+}
+
+func appendVictoriaHandler(hnds []slog.Handler, cfg Config, service, hostname string) []slog.Handler {
+	if cfg.VictoriaLogsURL == "" {
+		return hnds
+	}
+	return append(hnds, newVictoriaLogsHandler(
+		cfg.VictoriaLogsURL,
+		map[string]any{"service.name": service, "service.instance": hostname},
+	))
 }
 
 // New returns a logger with a name attribute.

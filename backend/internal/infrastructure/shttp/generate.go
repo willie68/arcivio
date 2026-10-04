@@ -164,6 +164,7 @@ func (gc *generateCertificate) createTemplate(notBefore time.Time) (*x509.Certif
 	return &template, nil
 }
 
+// TLSFromFiles loads the configured certificate and private key.
 func (s *SHttp) TLSFromFiles() (*tls.Config, error) {
 	tlsCert, err := tls.LoadX509KeyPair(s.cfn.Certificate, s.cfn.Key)
 	if err != nil {

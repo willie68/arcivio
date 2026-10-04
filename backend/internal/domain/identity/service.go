@@ -19,7 +19,7 @@ const (
 )
 
 type rolesService interface {
-	ValidateRoles(roles []string) error
+	ValidateRoles(names []string) error
 }
 
 // Service is the identity use-case root (local accounts, bootstrap, password rules).
@@ -31,14 +31,14 @@ type Service struct {
 }
 
 // New creates the identity service.
-func New(users UserStore, hasher PasswordHasher, roles rolesService) *Service {
+func New(users UserStore, hasher PasswordHasher, catalog rolesService) *Service {
 	if hasher == nil {
 		hasher = newArgon2Hasher()
 	}
 	return &Service{
 		users:  users,
 		hasher: hasher,
-		roles:  roles,
+		roles:  catalog,
 		now:    time.Now,
 	}
 }
@@ -246,23 +246,11 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, in UserPatch) (
 	if err := s.roles.ValidateRoles(in.Roles); err != nil {
 		return nil, err
 	}
-	if username != u.Username {
-		existing, err := s.users.GetByUsername(ctx, username)
-		if err == nil && existing != nil && existing.ID != u.ID {
-			return nil, ErrAlreadyExists
-		}
-		if err != nil && !errors.Is(err, ErrUserNotFound) {
-			return nil, err
-		}
+	if err := s.ensureUsernameFree(ctx, u, username); err != nil {
+		return nil, err
 	}
-	if HasRole(u, roles.RoleAdmin) && !HasRole(&User{Roles: in.Roles}, roles.RoleAdmin) {
-		n, err := s.users.CountWithRole(ctx, roles.RoleAdmin)
-		if err != nil {
-			return nil, err
-		}
-		if n <= 1 {
-			return nil, ErrLastAdmin
-		}
+	if err := s.ensureAdminRemains(ctx, u, in.Roles); err != nil {
+		return nil, err
 	}
 	u.Username = username
 	u.FirstName = strings.TrimSpace(in.FirstName)
@@ -274,6 +262,34 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, in UserPatch) (
 		return nil, err
 	}
 	return u, nil
+}
+
+func (s *Service) ensureUsernameFree(ctx context.Context, u *User, username string) error {
+	if username == u.Username {
+		return nil
+	}
+	existing, err := s.users.GetByUsername(ctx, username)
+	if err == nil && existing != nil && existing.ID != u.ID {
+		return ErrAlreadyExists
+	}
+	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) ensureAdminRemains(ctx context.Context, u *User, next []string) error {
+	if !HasRole(u, roles.RoleAdmin) || HasRole(&User{Roles: next}, roles.RoleAdmin) {
+		return nil
+	}
+	n, err := s.users.CountWithRole(ctx, roles.RoleAdmin)
+	if err != nil {
+		return err
+	}
+	if n <= 1 {
+		return ErrLastAdmin
+	}
+	return nil
 }
 
 // UpdateProfile changes first name, last name and email of the signed-in user.

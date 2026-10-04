@@ -2,6 +2,7 @@ package shttp
 
 import "github.com/samber/do/v2"
 
+// Provide registers the HTTP server from Config.
 func Provide(inj do.Injector) error {
 	cfg := do.MustInvoke[Config](inj)
 	sh, err := NewSHttp(cfg)

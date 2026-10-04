@@ -23,7 +23,7 @@ func TestTokenFromHeaderQueryCookie(t *testing.T) {
 }
 
 func TestAuthenticator(t *testing.T) {
-	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	h := Authenticator(okHandler)
@@ -51,7 +51,7 @@ func TestAuthenticator(t *testing.T) {
 func TestVerifierAndValidate(t *testing.T) {
 	ja := &JWTAuth{Config: JWTAuthConfig{IgnorePages: []string{"/health"}}}
 	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 	})

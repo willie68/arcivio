@@ -2,6 +2,7 @@ package health
 
 import "github.com/samber/do/v2"
 
+// Provide registers the health system from Config.
 func Provide(inj do.Injector) error {
 	health, err := NewHealthSystem(inj, do.MustInvoke[Config](inj))
 	if err != nil {

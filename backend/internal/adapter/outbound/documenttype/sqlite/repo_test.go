@@ -45,7 +45,33 @@ func TestDocumentTypeRepoCRUD(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, used)
 
+	byID, err := repo.GetByID(context.Background(), "t1")
+	require.NoError(t, err)
+	assert.Equal(t, "contract", byID.Name)
+
+	err = repo.Update(context.Background(), documenttype.Type{ID: "missing", Name: "other"})
+	assert.ErrorIs(t, err, documenttype.ErrNotFound)
+	err = repo.Delete(context.Background(), "missing")
+	assert.ErrorIs(t, err, documenttype.ErrNotFound)
+
 	require.NoError(t, repo.Delete(context.Background(), "t1"))
 	_, err = repo.GetByID(context.Background(), "t1")
 	assert.ErrorIs(t, err, documenttype.ErrNotFound)
+}
+
+func TestDocumentTypeRepoMapsUniqueAndBadJSON(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "dt.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+
+	require.NoError(t, repo.Create(context.Background(), documenttype.Type{ID: "a", Name: "invoice"}))
+	err = repo.Create(context.Background(), documenttype.Type{ID: "b", Name: "Invoice"})
+	assert.ErrorIs(t, err, documenttype.ErrAlreadyExists)
+
+	_, err = repo.db.Exec(`INSERT INTO document_types (id, name, definition, created_at, updated_at) VALUES ('c', 'broken', 'not-json', 't', 't')`)
+	require.NoError(t, err)
+	_, err = repo.GetByID(context.Background(), "c")
+	assert.Error(t, err)
 }

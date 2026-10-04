@@ -7,8 +7,11 @@ import (
 )
 
 func TestFileUtilsGetFiles(t *testing.T) {
-	GetFiles("./", "key_", func(fileinfo fs.DirEntry) bool {
+	err := GetFiles("./", "key_", func(fileinfo fs.DirEntry) bool {
 		fmt.Printf("filename: %s\r\n", fileinfo.Name())
 		return true
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }

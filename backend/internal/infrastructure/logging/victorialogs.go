@@ -46,7 +46,7 @@ func newVictoriaLogsHandler(baseURL string, preset map[string]any) *victoriaLogs
 	}
 }
 
-func (h *victoriaLogsHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (h *victoriaLogsHandler) Enabled(_ context.Context, _ slog.Level) bool {
 	// Implement the logic to check if the given log level is enabled
 	return true
 }
@@ -71,7 +71,7 @@ func findCurrentGroup(m map[string]any, currentGroup []string) map[string]any {
 	return m
 }
 
-func (h *victoriaLogsHandler) Handle(ctx context.Context, record slog.Record) error {
+func (h *victoriaLogsHandler) Handle(_ context.Context, record slog.Record) error {
 	m := maps.Clone(h.preset)
 
 	m["level"] = record.Level.String()

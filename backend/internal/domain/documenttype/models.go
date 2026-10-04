@@ -26,6 +26,7 @@ type Input struct {
 	FieldGroupIDs []string
 }
 
+// Document type failures returned by the service and the store.
 var (
 	ErrNotFound      = errors.New("document type not found")
 	ErrAlreadyExists = errors.New("document type already exists")

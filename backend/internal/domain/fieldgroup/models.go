@@ -46,6 +46,7 @@ type Input struct {
 	Fields      []Field
 }
 
+// Field group failures returned by the service and the store.
 var (
 	ErrNotFound      = errors.New("field group not found")
 	ErrAlreadyExists = errors.New("field group already exists")

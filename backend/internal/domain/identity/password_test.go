@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testHasher() *argon2Hasher {
+func testHasher() PasswordHasher {
 	return NewArgon2HasherWithParams(1, 16*1024, 1, 32, 16)
 }
 

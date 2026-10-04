@@ -46,6 +46,7 @@ type ProfilePatch struct {
 	Email     string
 }
 
+// Identity failures returned by the local account service.
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUserNotFound       = errors.New("user not found")

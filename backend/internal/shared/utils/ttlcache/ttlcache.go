@@ -126,7 +126,7 @@ func (c *Cache[K, V]) Add(k K, v V) {
 	c.items[k] = e
 }
 
-// Add adding a new value to the cache with default TTL
+// AddWithTTL stores v under k until ttl elapses.
 func (c *Cache[K, V]) AddWithTTL(k K, v V, ttl time.Duration) {
 	c.lock.Lock()
 	defer c.lock.Unlock()

@@ -14,10 +14,12 @@ type Check interface {
 	Check() (bool, error)
 }
 
+// Registerer accepts health checks.
 type Registerer interface {
 	Register(check Check)
 }
 
+// Unregisterer removes a health check by name.
 type Unregisterer interface {
 	Unregister(checkname string) bool
 }

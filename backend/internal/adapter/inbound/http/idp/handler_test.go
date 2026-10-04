@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/willie68/arcivio/internal/domain/identity"
 	domainidp "github.com/willie68/arcivio/internal/domain/idp"
 )
 
@@ -61,7 +63,7 @@ func TestHTTPAuthorizeLoginToken(t *testing.T) {
 	h := &Handler{idp: prov}
 	r := chi.NewRouter()
 	r.Mount(h.Routes())
-	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/login", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("login"))
 	})
@@ -72,7 +74,7 @@ func TestHTTPAuthorizeLoginToken(t *testing.T) {
 	require.NoError(t, err)
 	client := &http.Client{
 		Jar: jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -167,4 +169,86 @@ func TestCookieSecureFollowsForwardedProto(t *testing.T) {
 	assert.False(t, cookieSecure(req))
 	req.Header.Set("X-Forwarded-Proto", "https")
 	assert.True(t, cookieSecure(req))
+}
+
+func TestJWKSLogoutAndBearer(t *testing.T) {
+	prov := newMockIdpProvider(t)
+	prov.EXPECT().JWKS().Return(map[string]any{"keys": []any{}}).Once()
+	prov.EXPECT().UserInfoFromAccessToken(mock.Anything, "bad").Return(nil, domainidp.ErrInvalidToken).Once()
+	h := &Handler{idp: prov}
+
+	rec := httptest.NewRecorder()
+	h.JWKS(rec, httptest.NewRequest(http.MethodGet, "/auth/jwks", nil))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "keys")
+
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	h.Logout(rec, req)
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Contains(t, rec.Header().Get("Set-Cookie"), "Max-Age=0")
+
+	rec = httptest.NewRecorder()
+	h.Userinfo(rec, httptest.NewRequest(http.MethodGet, "/auth/userinfo", nil))
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Contains(t, rec.Header().Get("WWW-Authenticate"), "invalid_token")
+
+	rec = httptest.NewRecorder()
+	bad := httptest.NewRequest(http.MethodGet, "/auth/userinfo", nil)
+	bad.Header.Set("Authorization", "Bearer bad")
+	h.Userinfo(rec, bad)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestLoginAndOIDCErrors(t *testing.T) {
+	for _, err := range []error{
+		identity.ErrInvalidCredentials,
+		identity.ErrWeakPassword,
+		identity.ErrSamePassword,
+		domainidp.ErrLoginRequired,
+		domainidp.ErrPasswordChange,
+		errors.New("down"),
+	} {
+		rec := httptest.NewRecorder()
+		writeLoginError(rec, httptest.NewRequest(http.MethodPost, "/auth/login", nil), err)
+		assert.GreaterOrEqual(t, rec.Code, 400)
+	}
+	for _, err := range []error{
+		domainidp.ErrInvalidClient,
+		domainidp.ErrUnauthorizedClient,
+		domainidp.ErrInvalidGrant,
+		domainidp.ErrUnsupportedGrant,
+		domainidp.ErrInvalidToken,
+		domainidp.ErrInvalidRequest,
+		errors.New("other"),
+	} {
+		rec := httptest.NewRecorder()
+		writeOIDCError(rec, httptest.NewRequest(http.MethodPost, "/auth/token", nil), err)
+		assert.GreaterOrEqual(t, rec.Code, 400)
+	}
+
+	prov := newMockIdpProvider(t)
+	prov.EXPECT().CompleteLogin(mock.Anything, "", "ada", "secret").Return(domainidp.LoginResult{}, identity.ErrInvalidCredentials).Once()
+	prov.EXPECT().CompletePasswordChange(mock.Anything, "", "old", "new-secret").Return(domainidp.LoginResult{}, identity.ErrWeakPassword).Once()
+	prov.EXPECT().ExchangeToken(mock.Anything, mock.Anything).Return(nil, domainidp.ErrUnsupportedGrant).Once()
+	h := &Handler{idp: prov}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader([]byte(`{"username":"ada","password":"secret"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	h.Login(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/auth/change-password", bytes.NewReader([]byte(`{"oldPassword":"old","newPassword":"new-secret"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	h.ChangePassword(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/auth/token", strings.NewReader("grant_type=client_credentials"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.Token(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

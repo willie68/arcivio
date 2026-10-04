@@ -1,24 +1,28 @@
 package roles
 
-type service struct {
+// Service is the built-in role catalog.
+type Service struct {
 	roles map[string]RoleDefinition
 }
 
-func NewService() *service {
+// NewService returns the built-in role catalog.
+func NewService() *Service {
 	roles := make(map[string]RoleDefinition)
 	for _, role := range builtinRoles {
 		roles[role.Name] = role
 	}
-	return &service{roles: roles}
+	return &Service{roles: roles}
 }
 
-func (s *service) GetRoles() []RoleDefinition {
+// GetRoles returns the built-in roles in catalog order.
+func (s *Service) GetRoles() []RoleDefinition {
 	out := make([]RoleDefinition, len(builtinRoles))
 	copy(out, builtinRoles)
 	return out
 }
 
-func (s *service) GetRole(name string) *RoleDefinition {
+// GetRole returns the definition for name, or nil when the name is unknown.
+func (s *Service) GetRole(name string) *RoleDefinition {
 	role, ok := s.roles[name]
 	if !ok {
 		return nil
@@ -26,7 +30,8 @@ func (s *service) GetRole(name string) *RoleDefinition {
 	return &role
 }
 
-func (s *service) HasRole(checkRole string, desiredRole string) bool {
+// HasRole reports whether checkRole is the built-in role desiredRole.
+func (s *Service) HasRole(checkRole string, desiredRole string) bool {
 	role, ok := s.roles[checkRole]
 	if !ok {
 		return false
@@ -35,13 +40,13 @@ func (s *service) HasRole(checkRole string, desiredRole string) bool {
 }
 
 // ValidRole reports whether role is one of the built-in RBAC roles.
-func (s *service) ValidRole(role string) bool {
+func (s *Service) ValidRole(role string) bool {
 	_, ok := s.roles[role]
 	return ok
 }
 
 // ValidateRoles returns ErrInvalidRole if any role is unknown.
-func (s *service) ValidateRoles(roles []string) error {
+func (s *Service) ValidateRoles(roles []string) error {
 	if len(roles) == 0 {
 		return ErrInvalidRole
 	}

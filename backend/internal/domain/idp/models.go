@@ -35,6 +35,7 @@ type LoginResult struct {
 	RedirectTo string `json:"redirectTo,omitempty"`
 }
 
+// Login status values returned to the browser.
 const (
 	LoginOK             = "ok"
 	LoginPasswordChange = "password_change_required"

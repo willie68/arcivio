@@ -10,7 +10,7 @@ import (
 
 func TestTraceEnhancer(t *testing.T) {
 	called := false
-	h := TraceEnhancer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := TraceEnhancer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusNoContent)
 	}))

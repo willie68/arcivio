@@ -53,14 +53,17 @@ func (h *Handler) Routes() (string, *chi.Mux) {
 	return "/auth", r
 }
 
+// Discovery writes the OIDC discovery document.
 func (h *Handler) Discovery(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, h.idp.Discovery())
 }
 
+// JWKS writes the public signing keys.
 func (h *Handler) JWKS(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, h.idp.JWKS())
 }
 
+// Authorize starts the authorization-code flow and redirects to the login page.
 func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	req := idp.AuthorizationRequest{
@@ -87,6 +90,7 @@ type loginBody struct {
 	Password string `json:"password" validate:"required"`
 }
 
+// Login checks username and password for the current authorization request.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var body loginBody
 	if err := httputils.Decode(r, &body); err != nil {
@@ -106,6 +110,7 @@ type changePasswordBody struct {
 	NewPassword string `json:"newPassword" validate:"required"`
 }
 
+// ChangePassword finishes a login that requires a new password.
 func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	var body changePasswordBody
 	if err := httputils.Decode(r, &body); err != nil {
@@ -120,6 +125,7 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, res)
 }
 
+// Token exchanges an authorization code for tokens.
 func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		writeOIDCError(w, r, idp.ErrInvalidRequest)
@@ -139,6 +145,7 @@ func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, tok)
 }
 
+// Userinfo returns claims for a bearer access token.
 func (h *Handler) Userinfo(w http.ResponseWriter, r *http.Request) {
 	token := bearer(r)
 	if token == "" {
@@ -153,6 +160,7 @@ func (h *Handler) Userinfo(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, info)
 }
 
+// Logout clears the login-session cookie.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     idp.CookieName(),

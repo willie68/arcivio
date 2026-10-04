@@ -2,6 +2,7 @@ package documenttype
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -45,6 +46,44 @@ func TestRejectsUnknownOrRepeatedGroup(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalid)
 }
 
+func TestListAndDelete(t *testing.T) {
+	svc := New(&memStore{items: map[string]Type{}, listNil: true}, &memGroups{ids: map[string]struct{}{}})
+	listed, err := svc.List(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, listed)
+
+	created, err := svc.Create(context.Background(), Input{Name: "invoice"})
+	require.NoError(t, err)
+	listed, err = svc.List(context.Background())
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+
+	_, err = svc.Get(context.Background(), "  ")
+	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, svc.Delete(context.Background(), "missing"), ErrNotFound)
+	require.NoError(t, svc.Delete(context.Background(), created.ID))
+	_, err = svc.Get(context.Background(), created.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestUpdateRejectsTakenNameAndBlankGroup(t *testing.T) {
+	groups := &memGroups{ids: map[string]struct{}{"g1": {}}, failID: "down"}
+	svc := New(newMemStore(), groups)
+	first, err := svc.Create(context.Background(), Input{Name: "invoice"})
+	require.NoError(t, err)
+	_, err = svc.Create(context.Background(), Input{Name: "contract"})
+	require.NoError(t, err)
+
+	_, err = svc.Update(context.Background(), first.ID, Input{Name: "contract"})
+	assert.ErrorIs(t, err, ErrAlreadyExists)
+	_, err = svc.Update(context.Background(), "missing", Input{Name: "other"})
+	assert.ErrorIs(t, err, ErrNotFound)
+	_, err = svc.Create(context.Background(), Input{Name: "note", FieldGroupIDs: []string{"  "}})
+	assert.ErrorIs(t, err, ErrInvalid)
+	_, err = svc.Create(context.Background(), Input{Name: "note", FieldGroupIDs: []string{"down"}})
+	assert.EqualError(t, err, "lookup failed")
+}
+
 func TestUpdateKeepsOwnName(t *testing.T) {
 	groups := &memGroups{ids: map[string]struct{}{"g1": {}}}
 	svc := New(newMemStore(), groups)
@@ -57,10 +96,14 @@ func TestUpdateKeepsOwnName(t *testing.T) {
 }
 
 type memGroups struct {
-	ids map[string]struct{}
+	ids    map[string]struct{}
+	failID string
 }
 
 func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.Group, error) {
+	if id == m.failID {
+		return nil, errors.New("lookup failed")
+	}
 	if _, ok := m.ids[id]; !ok {
 		return nil, fieldgroup.ErrNotFound
 	}
@@ -68,7 +111,8 @@ func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.Group, er
 }
 
 type memStore struct {
-	items map[string]Type
+	items   map[string]Type
+	listNil bool
 }
 
 func newMemStore() *memStore {
@@ -76,6 +120,10 @@ func newMemStore() *memStore {
 }
 
 func (m *memStore) List(context.Context) ([]Type, error) {
+	if m.listNil {
+		m.listNil = false
+		return nil, nil
+	}
 	out := make([]Type, 0, len(m.items))
 	for _, item := range m.items {
 		out = append(out, item)

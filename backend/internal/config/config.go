@@ -143,6 +143,7 @@ func (c *Config) Provide(inj do.Injector) {
 
 var _ health.ServiceName = &Config{}
 
+// ServiceName implements health.ServiceName.
 func (c Config) ServiceName() string {
 	return Servicename
 }
@@ -152,11 +153,13 @@ func Get() Config {
 	return config
 }
 
+// JSON returns the loaded config as a JSON string.
 func JSON() string {
 	js, _ := json.Marshal(config)
 	return string(js)
 }
 
+// YAML returns the loaded config as a YAML string.
 func YAML() string {
 	js, _ := yaml.Marshal(config)
 	return string(js)
