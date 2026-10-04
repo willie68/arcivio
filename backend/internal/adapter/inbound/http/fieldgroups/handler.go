@@ -267,6 +267,8 @@ func writeGroupError(w http.ResponseWriter, r *http.Request, err error) {
 		httputils.Err(w, r, serror.NotFound("field-group", "", err))
 	case errors.Is(err, fieldgroup.ErrInvalid):
 		httputils.Err(w, r, serror.BadRequest(err, "invalid-field-group", "invalid field group"))
+	case errors.Is(err, fieldgroup.ErrInUse):
+		httputils.Err(w, r, serror.New(http.StatusConflict, "in-use", "field group is used by a document type"))
 	default:
 		httputils.Err(w, r, err)
 	}

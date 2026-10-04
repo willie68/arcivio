@@ -50,6 +50,7 @@ var (
 	ErrNotFound      = errors.New("field group not found")
 	ErrAlreadyExists = errors.New("field group already exists")
 	ErrInvalid       = errors.New("invalid field group")
+	ErrInUse         = errors.New("field group is used by a document type")
 )
 
 // ValueTypes is the allowed set, in UI order.

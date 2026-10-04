@@ -238,6 +238,41 @@ export async function deleteFieldGroup(id: string): Promise<void> {
   await apiJson(`/api/v1/field-groups/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+export type DocumentType = {
+  id: string;
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  fieldGroupIds: string[];
+};
+
+export type DocumentTypeInput = {
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  fieldGroupIds: string[];
+};
+
+export async function listDocumentTypes(): Promise<DocumentType[]> {
+  const data = await apiJson("/api/v1/document-types", { method: "GET" });
+  return (data.items ?? []) as DocumentType[];
+}
+
+export async function createDocumentType(input: DocumentTypeInput): Promise<DocumentType> {
+  return apiJson("/api/v1/document-types", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateDocumentType(id: string, input: DocumentTypeInput): Promise<DocumentType> {
+  return apiJson(`/api/v1/document-types/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteDocumentType(id: string): Promise<void> {
+  await apiJson(`/api/v1/document-types/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export async function listRoles(): Promise<SettingsRole[]> {
   const token = getAccessToken();
   if (!token) {

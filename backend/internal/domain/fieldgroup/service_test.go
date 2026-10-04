@@ -86,6 +86,23 @@ func TestRejectsUnknownValueTypeAndBadName(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalid)
 }
 
+func TestDeleteRejectedWhenUsed(t *testing.T) {
+	svc := New(newMemStore())
+	created, err := svc.Create(context.Background(), Input{Name: "beleg"})
+	require.NoError(t, err)
+	svc.BindUsage(usageFunc(func(string) (bool, error) { return true, nil }))
+	assert.ErrorIs(t, svc.Delete(context.Background(), created.ID), ErrInUse)
+	got, err := svc.Get(context.Background(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, got.ID)
+}
+
+type usageFunc func(groupID string) (bool, error)
+
+func (f usageFunc) UsesGroup(_ context.Context, groupID string) (bool, error) {
+	return f(groupID)
+}
+
 func TestDelete(t *testing.T) {
 	svc := New(newMemStore())
 	created, err := svc.Create(context.Background(), Input{Name: "beleg"})

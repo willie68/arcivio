@@ -2,9 +2,9 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-28)
+## Aktueller Stand (2026-10-04)
 
-**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer, Rollen und Feldgruppen sind da. Ablagen, Typen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer-, Rollen- und Feldgruppen-API prüfen die Rolle `admin`.
+**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer, Rollen, Feldgruppen und Typen sind da. Ablagen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer-, Rollen-, Feldgruppen- und Dokumenttypen-API prüfen die Rolle `admin`.
 
 Vorhanden:
 
@@ -29,7 +29,7 @@ Vorhanden:
 - Benutzer-Menü: Mein Konto (Dialog mit Loginname, Vorname, Name, E-Mail, LastLogin), Passwort ändern (Dialog im Client-Bereich), Info, Logout
 - Client-Start: Dashboard mit Filter und einklappbaren Bereichen Useraktionen (leer = zu), Ablagen/Ordner (Default, Auditlog, Eingang), Status (Platzhalterzahlen)
 - Einstellungen: Baum links inkl. Filter, Seite in der Mitte, Hilfe rechts ein-/ausklappbar (zu: nur „?“); live, ohne Save
-- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen, Bearbeiten, Passwort-Reset und Löschen. Rollen stehen mit Anzeigenamen. Blatt Rollen: Tabelle mit technischem Namen und Labels (de/en); die selektierte Zeile schreibt die Beschreibung in die Hilfespalte. Blatt Feldgruppen: CRUD der Definitionen. Platzhalter: Ablagen, Typen, externe Systeme
+- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen, Bearbeiten, Passwort-Reset und Löschen. Rollen stehen mit Anzeigenamen. Blatt Rollen: Tabelle mit technischem Namen und Labels (de/en); die selektierte Zeile schreibt die Beschreibung in die Hilfespalte. Blatt Feldgruppen und Blatt Typen: CRUD der Definitionen. Platzhalter: Ablagen, externe Systeme
 - Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth`, `/api`, `/swagger`, `/livez`, `/readyz` zum Go-HTTPS
 - Health `/livez` `/readyz`, Swagger `/swagger/` (`/me`), `data/` und `frontend/node_modules/` gitignored
 - JWT aktiv (`auth.type: jwt`); Signaturprüfung über den IdP-Verifier
@@ -46,8 +46,9 @@ Nächster Schritt: **Ablagen** (anlegen, Pfad, optionales Masterpasswort nur bei
 - [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
 - [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
 - [x] UI-Gerüst: App-Shell, Aura, i18n DE/EN, Client/Einstellungen-Toggle, User-Menü, Settings-Baum mit 5 Platzhalterseiten
-- [ ] Settings-Masken live ohne Save (Benutzer, Rollen und Feldgruppen sind da; Ablagen, Typen, externe Systeme fehlen)
+- [ ] Settings-Masken live ohne Save (Benutzer, Rollen, Feldgruppen und Typen sind da; Ablagen und externe Systeme fehlen)
 - [x] Feldgruppen-CRUD: Instanz-SQLite `field_groups`, API `/api/v1/field-groups`, Einstellungsblatt unter Dokumenttypen
+- [x] Dokumenttypen-CRUD: Instanz-SQLite `document_types`, API `/api/v1/document-types`, geordnete Feldgruppen-IDs; eine benutzte Feldgruppe lässt sich nicht löschen
 - [ ] Ablagen (Stores): selbsttragendes Verzeichnis pro Ablage, Default-Store beim ersten Start, optionales Masterpasswort nur bei Anlage
 - [ ] RBAC an der API durchsetzen (Benutzer-API prüft `admin`; Permissions `document.create` etc. fehlen)
 - [ ] Dokumenttypen: Typ als geordnete Zusammensetzung von Feldgruppen; Felder archival vs. fluid; Zuordnung Typ↔Ablage n:m; Typkopie (aufgelöstes Schema) in der Ablage beim ersten Ablegen
@@ -189,7 +190,7 @@ Noch geplant (als Domain + Ports + Adapter, nicht als `internal/services`):
 - **User / Role / Permission / Group** – Instanzebene, nicht in der Ablage
 - **Store (Ablage):** selbsttragendes Verzeichnis; Registry-Eintrag in der Instanz (ID, Name, Pfad, verschlüsselt ja/nein)
 - **FieldGroup (Feldgruppe):** kanonisch in der Instanz-SQLite (`field_groups`). Technischer Name der Gruppe ist eindeutig. Ein Feld hat technischen Namen (eindeutig **in der Gruppe**, ohne Groß-/Kleinschreibung), Labels und Beschreibung (de/en) und `valueType` (`bool`, `int`, `decimal`, `double`, `text`, `multiline`, `datetime`). Pflicht und `persistence` folgen später. Dieselbe Feldgruppe darf in mehreren Dokumenttypen vorkommen
-- **DocumentType:** Name, geordnete Liste von Feldgruppen, Default-Aufbewahrung, Archivpflicht. Das wirksame Schema ist die Vereinigung der Gruppen in dieser Reihenfolge. Kanonisch in der Instanz; Kopie in der Ablage, sobald dort ein Dokument dieses Typs liegt. Die Kopie speichert das aufgelöste Schema, nicht nur die Gruppen-IDs
+- **DocumentType:** kanonisch in der Instanz-SQLite (`document_types`). Technischer Name eindeutig, Labels und Beschreibung (de/en), geordnete Liste von Feldgruppen-IDs. Das wirksame Schema ist die Vereinigung der Gruppen in dieser Reihenfolge. Default-Aufbewahrung und Archivpflicht folgen später. Kopie in der Ablage, sobald dort ein Dokument dieses Typs liegt; die Kopie speichert das aufgelöste Schema, nicht nur die Gruppen-IDs
 - **StoreTypeAssignment:** n:m zwischen Typ und Ablage (ein Typ in mehreren Ablagen, eine Ablage mit mehreren Typen)
 - **Document:** Ablage, Typ, Status (`inbox` / `active` / `archived`), MIME, Originalname, Verweis auf aktuelle Blob-Version
 - **Version:** nur wenn sich **archival** Inhalt oder **archival** Attribute ändern; Blob nie überschreiben
@@ -209,7 +210,7 @@ Ein Dokumenttyp **setzt** solche Gruppen in eine feste Reihenfolge **zusammen**.
 
 Die Typkopie unter `types/` und der Archiv-Snapshot enthalten die Felder der Gruppen, wie sie beim Kopieren bzw. Archivieren galten. Eine eingehängte Ablage bleibt lesbar, auch wenn der Instanz-Katalog die Feldgruppen nicht kennt.
 
-Einstellungen: **Dokumenttypen** ist eine Navigationsgruppe mit den Blättern **Feldgruppen** (CRUD) und **Typen** (noch Platzhalter). Die API ist `GET/POST /api/v1/field-groups`, `GET/PUT/DELETE /api/v1/field-groups/{id}` und verlangt die Rolle `admin`. Die Felder einer Gruppe liegen als JSON in der Zeile; der Gruppenname ist zusätzlich indiziert, damit er eindeutig bleibt.
+Einstellungen: **Dokumenttypen** ist eine Navigationsgruppe mit den Blättern **Feldgruppen** und **Typen**, beide mit CRUD. Die APIs sind `/api/v1/field-groups` und `/api/v1/document-types` (`GET`/`POST`, sowie `GET`/`PUT`/`DELETE` auf `/{id}`) und verlangen die Rolle `admin`. Definitionen liegen als JSON in der jeweiligen Zeile; der technische Name ist zusätzlich indiziert. Eine Feldgruppe, die ein Typ noch referenziert, kann nicht gelöscht werden.
 
 ## Ablagen (Stores)
 
@@ -501,7 +502,7 @@ Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder *
 
 Client-Start ist ein Dashboard: links Filter und einklappbare Bereiche (Useraktionen zu, solange leer; Ablagen/Ordner mit Default, Auditlog, Eingang; Status mit Platzhalterwerten), in der Mitte nur der Einführungstext.
 
-Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blätter **Benutzer**, **Rollen** und **Feldgruppen** sind echte Masken. **Dokumenttypen** ist eine Gruppe; **Typen** bleibt Platzhalter. Weitere Platzhalter: Ablagen, externe Systeme.
+Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blätter **Benutzer**, **Rollen**, **Feldgruppen** und **Typen** sind echte Masken. **Dokumenttypen** ist die Gruppe darüber. Weitere Platzhalter: Ablagen, externe Systeme.
 
 **Benutzer-Maske:** Tabelle mit Loginname, Vorname, Name, E-Mail, Rollen (Anzeigenamen), letzter Anmeldung. Pagination und Sortierung laufen im Backend (`sort`: `username`, `firstName`, `lastName`, `email`, `roles`, `lastLogin`, `mustChangePassword`). Unter dem Titel: links Präfixfilter (ab 3 Zeichen, sonst ungefiltert), rechts Icon-Buttons Neuer Benutzer, Bearbeiten und Löschen (Löschen mit Mehrfachauswahl und Bestätigung).
 
@@ -620,7 +621,7 @@ Erledigt:
 7. Benutzer-Maske: Tabelle, Präfixfilter, Sortierung, Anlegen, Bearbeiten, Löschen; Rollen als Anzeigenamen, ohne Spalte Passwortwechsel; Hilfe einklappbar; Konto-Dialog mit Profilfeldern
 8. Rollen-Maske: Katalog aus `GET /api/v1/roles` (technischer Name, Labels de/en); selektierte Zeile zeigt die Beschreibung in der Hilfespalte. Fehlende Admin-Rolle: Hinweis auf der Seite, kein Login-Redirect
 
-Offen in dieser Phase: übrige Settings-Masken (Ablagen, Typen, externe Systeme). Feldgruppen-CRUD ist da.
+Offen in dieser Phase: übrige Settings-Masken (Ablagen, externe Systeme). Feldgruppen- und Dokumenttypen-CRUD sind da.
 
 Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus wie dasselbe Produkt.
 

@@ -61,6 +61,8 @@ function actionMessage(key: string): string {
   switch (key) {
     case "already-exists":
       return t("settings.fieldGroups.alreadyExists");
+    case "in-use":
+      return t("settings.fieldGroups.inUse");
     case "invalid-field-group":
       return t("settings.fieldGroups.invalid");
     case "forbidden":

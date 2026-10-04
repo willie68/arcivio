@@ -11,9 +11,15 @@ import (
 
 const maxNameLen = 64
 
+// Usage reports whether a field group is referenced by a document type.
+type Usage interface {
+	UsesGroup(ctx context.Context, groupID string) (bool, error)
+}
+
 // Service is the field-group use case.
 type Service struct {
 	store Store
+	usage Usage
 	ids   func() string
 }
 
@@ -78,10 +84,24 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Group, erro
 	return &group, nil
 }
 
-// Delete removes a field group.
+// BindUsage rejects deleting a group that a document type still lists.
+func (s *Service) BindUsage(usage Usage) {
+	s.usage = usage
+}
+
+// Delete removes a field group that no document type references.
 func (s *Service) Delete(ctx context.Context, id string) error {
 	if _, err := s.Get(ctx, id); err != nil {
 		return err
+	}
+	if s.usage != nil {
+		used, err := s.usage.UsesGroup(ctx, id)
+		if err != nil {
+			return err
+		}
+		if used {
+			return ErrInUse
+		}
 	}
 	return s.store.Delete(ctx, id)
 }
