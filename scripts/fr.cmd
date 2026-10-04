@@ -1,0 +1,2 @@
+cd .\frontend
+dev.cmd
