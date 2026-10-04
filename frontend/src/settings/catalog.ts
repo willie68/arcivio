@@ -2,7 +2,8 @@ import type { Component } from "vue";
 import UsersPage from "./pages/UsersPage.vue";
 import RolesPage from "./pages/RolesPage.vue";
 import StoresPage from "./pages/StoresPage.vue";
-import DocumentTypesPage from "./pages/DocumentTypesPage.vue";
+import FieldGroupsPage from "./pages/FieldGroupsPage.vue";
+import TypesPage from "./pages/TypesPage.vue";
 import ExternalSystemsPage from "./pages/ExternalSystemsPage.vue";
 
 /** A settings group or leaf. Only leaves map to a page. */
@@ -51,7 +52,22 @@ export const settingsCatalog: SettingsItem[] = [
     labelKey: "settings.nav.documentTypes",
     helpKey: "settings.help.documentTypes",
     icon: "pi-file",
-    page: DocumentTypesPage,
+    children: [
+      {
+        id: "field-groups",
+        labelKey: "settings.nav.fieldGroups",
+        helpKey: "settings.help.fieldGroups",
+        icon: "pi-list",
+        page: FieldGroupsPage,
+      },
+      {
+        id: "types",
+        labelKey: "settings.nav.types",
+        helpKey: "settings.help.types",
+        icon: "pi-file-edit",
+        page: TypesPage,
+      },
+    ],
   },
   {
     id: "external-systems",

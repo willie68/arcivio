@@ -35,6 +35,10 @@ watch(selectedId, () => {
 function onSelect(node: NavNode) {
   if (node.item.page) {
     selectedId.value = node.id;
+    return;
+  }
+  if (!navOpen.value && node.children?.length) {
+    navOpen.value = true;
   }
 }
 </script>

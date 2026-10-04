@@ -191,6 +191,53 @@ export type SettingsRole = {
   description: { de: string; en: string };
 };
 
+export type LocalizedText = { de: string; en: string };
+
+export const fieldValueTypes = ["bool", "int", "decimal", "double", "text", "multiline", "datetime"] as const;
+export type FieldValueType = (typeof fieldValueTypes)[number];
+
+export type FieldDefinition = {
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  valueType: FieldValueType;
+};
+
+export type FieldGroup = {
+  id: string;
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  fields: FieldDefinition[];
+};
+
+export type FieldGroupInput = {
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  fields: FieldDefinition[];
+};
+
+export async function listFieldGroups(): Promise<FieldGroup[]> {
+  const data = await apiJson("/api/v1/field-groups", { method: "GET" });
+  return (data.items ?? []) as FieldGroup[];
+}
+
+export async function createFieldGroup(input: FieldGroupInput): Promise<FieldGroup> {
+  return apiJson("/api/v1/field-groups", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateFieldGroup(id: string, input: FieldGroupInput): Promise<FieldGroup> {
+  return apiJson(`/api/v1/field-groups/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteFieldGroup(id: string): Promise<void> {
+  await apiJson(`/api/v1/field-groups/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export async function listRoles(): Promise<SettingsRole[]> {
   const token = getAccessToken();
   if (!token) {

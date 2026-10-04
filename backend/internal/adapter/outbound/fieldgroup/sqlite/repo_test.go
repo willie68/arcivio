@@ -1,0 +1,68 @@
+package sqlite
+
+import (
+	"context"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	storesqlite "github.com/willie68/arcivio/internal/adapter/outbound/store/sqlite"
+	"github.com/willie68/arcivio/internal/domain/fieldgroup"
+)
+
+func TestFieldGroupRepoCRUD(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "fg.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+
+	group := fieldgroup.Group{
+		ID:          "fg1",
+		Name:        "beleg",
+		Labels:      fieldgroup.Text{De: "Beleg", En: "Voucher"},
+		Description: fieldgroup.Text{De: "Kopf", En: "Header"},
+		Fields: []fieldgroup.Field{{
+			Name:        "amount",
+			Labels:      fieldgroup.Text{De: "Betrag", En: "Amount"},
+			Description: fieldgroup.Text{De: "Brutto", En: "Gross"},
+			ValueType:   fieldgroup.ValueDecimal,
+		}},
+	}
+	require.NoError(t, repo.Create(context.Background(), group))
+
+	byName, err := repo.GetByName(context.Background(), "BELEG")
+	require.NoError(t, err)
+	assert.Equal(t, "fg1", byName.ID)
+	assert.Equal(t, "Beleg", byName.Labels.De)
+	require.Len(t, byName.Fields, 1)
+	assert.Equal(t, fieldgroup.ValueDecimal, byName.Fields[0].ValueType)
+	assert.Equal(t, "Brutto", byName.Fields[0].Description.De)
+
+	group.Name = "parties"
+	group.Fields = []fieldgroup.Field{{Name: "at", ValueType: fieldgroup.ValueDateTime}}
+	require.NoError(t, repo.Update(context.Background(), group))
+
+	listed, err := repo.List(context.Background())
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, "parties", listed[0].Name)
+
+	require.NoError(t, repo.Delete(context.Background(), "fg1"))
+	_, err = repo.GetByID(context.Background(), "fg1")
+	assert.ErrorIs(t, err, fieldgroup.ErrNotFound)
+}
+
+func TestFieldGroupRepoNameIsUniqueIgnoringCase(t *testing.T) {
+	st, err := storesqlite.New(filepath.Join(t.TempDir(), "fg.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	repo, err := New(st.DB())
+	require.NoError(t, err)
+	require.NoError(t, repo.Create(context.Background(), fieldgroup.Group{ID: "a", Name: "beleg"}))
+	err = repo.Create(context.Background(), fieldgroup.Group{ID: "b", Name: "Beleg"})
+	assert.ErrorIs(t, err, fieldgroup.ErrAlreadyExists)
+}
