@@ -32,6 +32,7 @@ func TestCreateAndRename(t *testing.T) {
 			Labels:      Text{De: "Nummer", En: "Number"},
 			Description: Text{De: "Belegnummer", En: "Voucher number"},
 			ValueType:   ValueText,
+			Mandatory:   true,
 		}},
 	})
 	require.NoError(t, err)
@@ -39,6 +40,7 @@ func TestCreateAndRename(t *testing.T) {
 	assert.Equal(t, "beleg", created.Name)
 	assert.Equal(t, "Beleg", created.Labels.De)
 	assert.Equal(t, ValueText, created.Fields[0].ValueType)
+	assert.True(t, created.Fields[0].Mandatory)
 
 	_, err = svc.Create(context.Background(), Input{Name: "BELEG"})
 	assert.ErrorIs(t, err, ErrAlreadyExists)
@@ -71,6 +73,21 @@ func TestUpdateKeepsOwnName(t *testing.T) {
 	assert.Len(t, updated.Fields, 4)
 }
 
+func TestCreateAcceptsIntrefAndFile(t *testing.T) {
+	svc := New(newMemStore())
+	created, err := svc.Create(context.Background(), Input{
+		Name: "refs",
+		Fields: []Field{
+			{Name: "owner", ValueType: ValueIntRef},
+			{Name: "attachment", ValueType: ValueFile},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, created.Fields, 2)
+	assert.Equal(t, ValueIntRef, created.Fields[0].ValueType)
+	assert.Equal(t, ValueFile, created.Fields[1].ValueType)
+}
+
 func TestRejectsUnknownValueTypeAndBadName(t *testing.T) {
 	svc := New(newMemStore())
 	_, err := svc.Create(context.Background(), Input{
@@ -84,6 +101,43 @@ func TestRejectsUnknownValueTypeAndBadName(t *testing.T) {
 
 	_, err = svc.Create(context.Background(), Input{Name: strings.Repeat("a", maxNameLen+1)})
 	assert.ErrorIs(t, err, ErrInvalid)
+}
+
+func TestEnsureBuiltinImportsMissingGroups(t *testing.T) {
+	st := newMemStore()
+	svc := New(st)
+	require.NoError(t, svc.EnsureBuiltin(context.Background()))
+	system, err := st.GetByID(context.Background(), "system")
+	require.NoError(t, err)
+	assert.True(t, system.Readonly)
+	assert.Equal(t, "system", system.Name)
+	require.NotEmpty(t, system.Fields)
+	var creator Field
+	for _, field := range system.Fields {
+		if field.Name == "creator" {
+			creator = field
+		}
+	}
+	assert.Equal(t, "intref:user", creator.ValueType)
+
+	before, err := st.List(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, svc.EnsureBuiltin(context.Background()))
+	after, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, after, len(before))
+}
+
+func TestReadonlyGroupRejectsChange(t *testing.T) {
+	st := newMemStore()
+	require.NoError(t, st.Create(context.Background(), Group{ID: "system", Name: "system", Readonly: true}))
+	svc := New(st)
+	_, err := svc.Update(context.Background(), "system", Input{Name: "other"})
+	assert.ErrorIs(t, err, ErrReadonly)
+	assert.ErrorIs(t, svc.Delete(context.Background(), "system"), ErrReadonly)
+	stored, err := st.GetByID(context.Background(), "system")
+	require.NoError(t, err)
+	assert.Equal(t, "system", stored.Name)
 }
 
 func TestDelete(t *testing.T) {

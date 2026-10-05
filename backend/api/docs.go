@@ -36,6 +36,59 @@ const docTemplate = `{
                         "description": "Unauthorized"
                     }
                 }
+            },
+            "patch": {
+                "description": "Changes first name, last name and email of the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "identity"
+                ],
+                "summary": "Update own profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apiv1.MeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/me/password": {
+            "post": {
+                "description": "Changes the password of the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "identity"
+                ],
+                "summary": "Change own password",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
             }
         }
     },
@@ -43,7 +96,19 @@ const docTemplate = `{
         "apiv1.MeResponse": {
             "type": "object",
             "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "type": "string"
+                },
                 "id": {
+                    "type": "string"
+                },
+                "lastLogin": {
+                    "type": "string"
+                },
+                "lastName": {
                     "type": "string"
                 },
                 "mustChangePassword": {

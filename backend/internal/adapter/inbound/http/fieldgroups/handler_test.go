@@ -40,7 +40,8 @@ func TestCreateListAndDelete(t *testing.T) {
 			"name": "amount",
 			"labels": {"de": "Betrag", "en": "Amount"},
 			"description": {"de": "Brutto", "en": "Gross"},
-			"valueType": "decimal"
+			"valueType": "decimal",
+			"mandatory": true
 		}]
 	}`)
 	rec := httptest.NewRecorder()
@@ -53,6 +54,7 @@ func TestCreateListAndDelete(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
 	assert.Equal(t, "beleg", created.Name)
 	assert.Equal(t, "decimal", created.Fields[0].ValueType)
+	assert.True(t, created.Fields[0].Mandatory)
 	assert.NotEmpty(t, created.ID)
 
 	rec = httptest.NewRecorder()

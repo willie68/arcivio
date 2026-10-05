@@ -27,6 +27,7 @@ const loading = ref(false);
 const error = ref("");
 
 const editorOpen = ref(false);
+const readonlyView = ref(false);
 const editingId = ref("");
 const saving = ref(false);
 const formError = ref("");
@@ -36,9 +37,24 @@ const fieldOpen = ref<boolean[]>([]);
 const deleteOpen = ref(false);
 const deleting = ref(false);
 
-const editorTitle = computed(() =>
-  editingId.value ? t("settings.fieldGroups.editTitle") : t("settings.fieldGroups.createTitle"),
-);
+const editorTitle = computed(() => {
+  if (readonlyView.value) {
+    return shownLabel(form.value);
+  }
+  return editingId.value ? t("settings.fieldGroups.editTitle") : t("settings.fieldGroups.createTitle");
+});
+const editTip = computed(() => {
+  if (selected.value?.readonly) {
+    return t("settings.fieldGroups.readonly");
+  }
+  return selected.value ? t("settings.fieldGroups.edit") : t("settings.fieldGroups.editNeedSelection");
+});
+const deleteTip = computed(() => {
+  if (selected.value?.readonly) {
+    return t("settings.fieldGroups.readonly");
+  }
+  return selected.value ? t("settings.fieldGroups.delete") : t("settings.fieldGroups.deleteNeedSelection");
+});
 
 function emptyText() {
   return { de: "", en: "" };
@@ -49,7 +65,7 @@ function emptyForm(): FieldGroupInput {
 }
 
 function emptyField(): FieldDefinition {
-  return { name: "", labels: emptyText(), description: emptyText(), valueType: "text" };
+  return { name: "", labels: emptyText(), description: emptyText(), valueType: "text", mandatory: false };
 }
 
 function shownLabel(group: { name: string; labels: { de: string; en: string } }): string {
@@ -61,6 +77,8 @@ function actionMessage(key: string): string {
   switch (key) {
     case "already-exists":
       return t("settings.fieldGroups.alreadyExists");
+    case "readonly":
+      return t("settings.fieldGroups.readonly");
     case "invalid-field-group":
       return t("settings.fieldGroups.invalid");
     case "forbidden":
@@ -68,6 +86,10 @@ function actionMessage(key: string): string {
     default:
       return t("settings.fieldGroups.actionError");
   }
+}
+
+function catalogNameOk(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_ ()]*$/.test(value.trim());
 }
 
 function technicalNameOk(value: string): boolean {
@@ -99,6 +121,7 @@ async function load() {
 }
 
 function openCreate() {
+  readonlyView.value = false;
   editingId.value = "";
   form.value = emptyForm();
   fieldOpen.value = [];
@@ -106,13 +129,8 @@ function openCreate() {
   editorOpen.value = true;
 }
 
-function openEdit() {
-  const group = selected.value;
-  if (!group) {
-    return;
-  }
-  editingId.value = group.id;
-  form.value = {
+function copyGroup(group: FieldGroup): FieldGroupInput {
+  return {
     name: group.name,
     labels: { ...group.labels },
     description: { ...group.description },
@@ -121,8 +139,32 @@ function openEdit() {
       labels: { ...field.labels },
       description: { ...field.description },
       valueType: field.valueType,
+      mandatory: field.mandatory,
     })),
   };
+}
+
+function openReadonly() {
+  const group = selected.value;
+  if (!group) {
+    return;
+  }
+  readonlyView.value = true;
+  editingId.value = group.id;
+  form.value = copyGroup(group);
+  fieldOpen.value = form.value.fields.map(() => false);
+  formError.value = "";
+  editorOpen.value = true;
+}
+
+function openEdit() {
+  const group = selected.value;
+  if (!group || group.readonly) {
+    return;
+  }
+  readonlyView.value = false;
+  editingId.value = group.id;
+  form.value = copyGroup(group);
   fieldOpen.value = form.value.fields.map(() => false);
   formError.value = "";
   editorOpen.value = true;
@@ -130,7 +172,22 @@ function openEdit() {
 
 function onRowDoubleClick(event: { data: FieldGroup }) {
   selected.value = event.data;
+  if (event.data.readonly) {
+    openReadonly();
+    return;
+  }
   openEdit();
+}
+
+function knownValueType(value: string): boolean {
+  return (fieldValueTypes as readonly string[]).includes(value);
+}
+
+function valueTypeLabel(value: string): string {
+  if (!knownValueType(value)) {
+    return value;
+  }
+  return t(`settings.fieldGroups.valueTypes.${value}`);
 }
 
 function addField() {
@@ -169,8 +226,8 @@ function fieldTitle(field: FieldDefinition, index: number): string {
 }
 
 function validate(input: FieldGroupInput): string {
-  if (!technicalNameOk(input.name)) {
-    return t("settings.fieldGroups.invalid");
+  if (!catalogNameOk(input.name)) {
+    return t("settings.fieldGroups.invalidName");
   }
   const seen = new Set<string>();
   for (const field of input.fields) {
@@ -196,11 +253,15 @@ function payload(): FieldGroupInput {
       labels: { de: field.labels.de.trim(), en: field.labels.en.trim() },
       description: { de: field.description.de.trim(), en: field.description.en.trim() },
       valueType: field.valueType,
+      mandatory: field.mandatory,
     })),
   };
 }
 
 async function submit() {
+  if (readonlyView.value) {
+    return;
+  }
   formError.value = "";
   const input = payload();
   const problem = validate(input);
@@ -229,7 +290,7 @@ async function submit() {
 }
 
 function openDelete() {
-  if (!selected.value) {
+  if (!selected.value || selected.value.readonly) {
     return;
   }
   deleteOpen.value = true;
@@ -277,18 +338,18 @@ onMounted(() => {
           v-tooltip.bottom="t('settings.fieldGroups.create')"
           @click="openCreate"
         />
-        <span v-tooltip.bottom="selected ? t('settings.fieldGroups.edit') : t('settings.fieldGroups.editNeedSelection')">
+        <span v-tooltip.bottom="editTip">
           <Button
             type="button"
             icon="pi pi-pencil"
             text
             rounded
             :aria-label="t('settings.fieldGroups.edit')"
-            :disabled="!selected"
+            :disabled="!selected || selected.readonly"
             @click="openEdit"
           />
         </span>
-        <span v-tooltip.bottom="selected ? t('settings.fieldGroups.delete') : t('settings.fieldGroups.deleteNeedSelection')">
+        <span v-tooltip.bottom="deleteTip">
           <Button
             type="button"
             icon="pi pi-trash"
@@ -296,7 +357,7 @@ onMounted(() => {
             rounded
             severity="danger"
             :aria-label="t('settings.fieldGroups.delete')"
-            :disabled="!selected || deleting"
+            :disabled="!selected || selected.readonly || deleting"
             @click="openDelete"
           />
         </span>
@@ -315,7 +376,19 @@ onMounted(() => {
       @row-dblclick="onRowDoubleClick"
     >
       <template #empty>{{ t("settings.fieldGroups.empty") }}</template>
-      <Column field="name" :header="t('settings.fieldGroups.name')" />
+      <Column field="name" :header="t('settings.fieldGroups.name')">
+        <template #body="{ data }">
+          <span class="name-cell">
+            {{ data.name }}
+            <i
+              v-if="data.readonly"
+              class="pi pi-lock"
+              :title="t('settings.fieldGroups.readonly')"
+              :aria-label="t('settings.fieldGroups.readonly')"
+            />
+          </span>
+        </template>
+      </Column>
       <Column :header="t('settings.fieldGroups.label')">
         <template #body="{ data }">{{ shownLabel(data) }}</template>
       </Column>
@@ -324,7 +397,18 @@ onMounted(() => {
       </Column>
     </DataTable>
 
-    <Dialog v-model:visible="editorOpen" modal :header="editorTitle" :style="{ width: '40rem' }">
+    <Dialog v-model:visible="editorOpen" modal :style="{ width: '40rem' }">
+      <template #header>
+        <span class="dlg-title">
+          {{ editorTitle }}
+          <i
+            v-if="readonlyView"
+            class="pi pi-lock"
+            :title="t('settings.fieldGroups.readonly')"
+            :aria-label="t('settings.fieldGroups.readonly')"
+          />
+        </span>
+      </template>
       <form class="form" @submit.prevent="submit">
         <label v-if="editingId">
           {{ t("settings.fieldGroups.id") }}
@@ -332,23 +416,23 @@ onMounted(() => {
         </label>
         <label>
           {{ t("settings.fieldGroups.name") }}
-          <input v-model="form.name" required autocomplete="off" />
+          <input v-model="form.name" required autocomplete="off" :disabled="readonlyView" />
         </label>
         <label>
           {{ t("settings.fieldGroups.labelDe") }}
-          <input v-model="form.labels.de" autocomplete="off" />
+          <input v-model="form.labels.de" autocomplete="off" :disabled="readonlyView" />
         </label>
         <label>
           {{ t("settings.fieldGroups.labelEn") }}
-          <input v-model="form.labels.en" autocomplete="off" />
+          <input v-model="form.labels.en" autocomplete="off" :disabled="readonlyView" />
         </label>
         <label>
           {{ t("settings.fieldGroups.descriptionDe") }}
-          <textarea v-model="form.description.de" rows="2" />
+          <textarea v-model="form.description.de" rows="2" :disabled="readonlyView" />
         </label>
         <label>
           {{ t("settings.fieldGroups.descriptionEn") }}
-          <textarea v-model="form.description.en" rows="2" />
+          <textarea v-model="form.description.en" rows="2" :disabled="readonlyView" />
         </label>
         <fieldset class="fields">
           <legend>{{ t("settings.fieldGroups.fields") }}</legend>
@@ -363,52 +447,59 @@ onMounted(() => {
               >
                 <i class="pi" :class="fieldOpen[index] ? 'pi-chevron-down' : 'pi-chevron-right'" aria-hidden="true" />
                 <span>{{ fieldTitle(field, index) }}</span>
-                <span class="field-type">{{ t(`settings.fieldGroups.valueTypes.${field.valueType}`) }}</span>
+                <span class="field-type">{{ valueTypeLabel(field.valueType) }}</span>
+                <span v-if="field.mandatory" class="field-type">{{ t("settings.fieldGroups.mandatory") }}</span>
               </button>
               <div class="field-actions">
-                <Button type="button" icon="pi pi-arrow-up" text rounded :aria-label="t('settings.fieldGroups.moveUp')" :disabled="index === 0" @click="moveField(index, -1)" />
-                <Button type="button" icon="pi pi-arrow-down" text rounded :aria-label="t('settings.fieldGroups.moveDown')" :disabled="index === form.fields.length - 1" @click="moveField(index, 1)" />
-                <Button type="button" icon="pi pi-times" text rounded severity="danger" :aria-label="t('settings.fieldGroups.removeField')" @click="removeField(index)" />
+                <Button type="button" icon="pi pi-arrow-up" text rounded :aria-label="t('settings.fieldGroups.moveUp')" :disabled="readonlyView || index === 0" @click="moveField(index, -1)" />
+                <Button type="button" icon="pi pi-arrow-down" text rounded :aria-label="t('settings.fieldGroups.moveDown')" :disabled="readonlyView || index === form.fields.length - 1" @click="moveField(index, 1)" />
+                <Button type="button" icon="pi pi-times" text rounded severity="danger" :aria-label="t('settings.fieldGroups.removeField')" :disabled="readonlyView" @click="removeField(index)" />
               </div>
             </div>
             <template v-if="fieldOpen[index]">
             <label>
               {{ t("settings.fieldGroups.name") }}
-              <input v-model="field.name" required autocomplete="off" />
+              <input v-model="field.name" required autocomplete="off" :disabled="readonlyView" />
             </label>
             <label>
               {{ t("settings.fieldGroups.valueType") }}
-              <select v-model="field.valueType">
+              <select v-model="field.valueType" :disabled="readonlyView">
+                <option v-if="!knownValueType(field.valueType)" :value="field.valueType">{{ field.valueType }}</option>
                 <option v-for="valueType in fieldValueTypes" :key="valueType" :value="valueType">
                   {{ t(`settings.fieldGroups.valueTypes.${valueType}`) }}
                 </option>
               </select>
             </label>
+            <label class="check">
+              <input v-model="field.mandatory" type="checkbox" :disabled="readonlyView" />
+              {{ t("settings.fieldGroups.mandatory") }}
+            </label>
             <label>
               {{ t("settings.fieldGroups.labelDe") }}
-              <input v-model="field.labels.de" autocomplete="off" />
+              <input v-model="field.labels.de" autocomplete="off" :disabled="readonlyView" />
             </label>
             <label>
               {{ t("settings.fieldGroups.labelEn") }}
-              <input v-model="field.labels.en" autocomplete="off" />
+              <input v-model="field.labels.en" autocomplete="off" :disabled="readonlyView" />
             </label>
             <label>
               {{ t("settings.fieldGroups.descriptionDe") }}
-              <textarea v-model="field.description.de" rows="2" />
+              <textarea v-model="field.description.de" rows="2" :disabled="readonlyView" />
             </label>
             <label>
               {{ t("settings.fieldGroups.descriptionEn") }}
-              <textarea v-model="field.description.en" rows="2" />
+              <textarea v-model="field.description.en" rows="2" :disabled="readonlyView" />
             </label>
             </template>
           </article>
-          <Button type="button" :label="t('settings.fieldGroups.addField')" text @click="addField" />
+          <Button v-if="!readonlyView" type="button" :label="t('settings.fieldGroups.addField')" text @click="addField" />
         </fieldset>
         <p v-if="formError" class="error">{{ formError }}</p>
       </form>
       <template #footer>
-        <Button type="button" :label="t('settings.fieldGroups.cancel')" text @click="editorOpen = false" />
+        <Button type="button" :label="readonlyView ? t('settings.fieldGroups.close') : t('settings.fieldGroups.cancel')" text @click="editorOpen = false" />
         <Button
+          v-if="!readonlyView"
           type="button"
           :label="editingId ? t('settings.fieldGroups.editSubmit') : t('settings.fieldGroups.createSubmit')"
           :loading="saving"
@@ -429,6 +520,17 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.name-cell,
+.dlg-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.name-cell .pi-lock,
+.dlg-title .pi-lock {
+  color: #5b6570;
+  font-size: 0.85rem;
+}
 .toolbar {
   display: flex;
   justify-content: flex-end;
@@ -453,6 +555,17 @@ onMounted(() => {
   gap: 0.3rem;
   color: #243040;
   font-size: 0.9rem;
+}
+.form label.check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.form label.check input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .form input,
 .form textarea,

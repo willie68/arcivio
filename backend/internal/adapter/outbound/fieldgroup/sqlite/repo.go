@@ -15,9 +15,10 @@ import (
 const migration = "005_field_groups"
 
 type definition struct {
-	Labels      textJSON      `json:"labels"`
-	Description textJSON      `json:"description"`
-	Fields      []fieldJSON   `json:"fields"`
+	Labels      textJSON    `json:"labels"`
+	Description textJSON    `json:"description"`
+	Readonly    bool        `json:"readonly"`
+	Fields      []fieldJSON `json:"fields"`
 }
 
 type textJSON struct {
@@ -30,6 +31,7 @@ type fieldJSON struct {
 	Labels      textJSON `json:"labels"`
 	Description textJSON `json:"description"`
 	ValueType   string   `json:"valueType"`
+	Mandatory   bool     `json:"mandatory"`
 }
 
 // Repo stores field groups in the instance SQLite database.
@@ -191,6 +193,7 @@ func scanGroup(row scanner) (fieldgroup.Group, error) {
 	}
 	group.Labels = toText(def.Labels)
 	group.Description = toText(def.Description)
+	group.Readonly = def.Readonly
 	group.Fields = make([]fieldgroup.Field, 0, len(def.Fields))
 	for _, field := range def.Fields {
 		group.Fields = append(group.Fields, fieldgroup.Field{
@@ -198,6 +201,7 @@ func scanGroup(row scanner) (fieldgroup.Group, error) {
 			Labels:      toText(field.Labels),
 			Description: toText(field.Description),
 			ValueType:   field.ValueType,
+			Mandatory:   field.Mandatory,
 		})
 	}
 	return group, nil
@@ -211,11 +215,13 @@ func marshalDefinition(group fieldgroup.Group) (string, error) {
 			Labels:      fromText(field.Labels),
 			Description: fromText(field.Description),
 			ValueType:   field.ValueType,
+			Mandatory:   field.Mandatory,
 		})
 	}
 	raw, err := json.Marshal(definition{
 		Labels:      fromText(group.Labels),
 		Description: fromText(group.Description),
+		Readonly:    group.Readonly,
 		Fields:      fields,
 	})
 	if err != nil {

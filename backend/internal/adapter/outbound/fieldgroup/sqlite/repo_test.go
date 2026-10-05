@@ -24,11 +24,13 @@ func TestFieldGroupRepoCRUD(t *testing.T) {
 		Name:        "beleg",
 		Labels:      fieldgroup.Text{De: "Beleg", En: "Voucher"},
 		Description: fieldgroup.Text{De: "Kopf", En: "Header"},
+		Readonly:    true,
 		Fields: []fieldgroup.Field{{
 			Name:        "amount",
 			Labels:      fieldgroup.Text{De: "Betrag", En: "Amount"},
 			Description: fieldgroup.Text{De: "Brutto", En: "Gross"},
 			ValueType:   fieldgroup.ValueDecimal,
+			Mandatory:   true,
 		}},
 	}
 	require.NoError(t, repo.Create(context.Background(), group))
@@ -39,6 +41,8 @@ func TestFieldGroupRepoCRUD(t *testing.T) {
 	assert.Equal(t, "Beleg", byName.Labels.De)
 	require.Len(t, byName.Fields, 1)
 	assert.Equal(t, fieldgroup.ValueDecimal, byName.Fields[0].ValueType)
+	assert.True(t, byName.Fields[0].Mandatory)
+	assert.True(t, byName.Readonly)
 	assert.Equal(t, "Brutto", byName.Fields[0].Description.De)
 
 	group.Name = "parties"

@@ -2,15 +2,15 @@
 
 Architektur- und Umsetzungsplan: selbsttragendes SOHO-DMS mit Go-Backend, PrimeVue-Frontend, eingebettetem Speicher, eigener AuthN/AuthZ inkl. SSO sowie integriertem, signierbarem Append-Only-Archiv und Bleve (Volltext + Vektoren).
 
-## Aktueller Stand (2026-09-28)
+## Aktueller Stand (2026-10-05)
 
-**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer, Rollen und Feldgruppen sind da. Ablagen, Typen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer-, Rollen- und Feldgruppen-API prüfen die Rolle `admin`.
+**Phase 1 (Gerüst) und Phase 2 Auth lokal sind fachlich erfüllt.** **Phase 3 UI-Gerüst ist erfüllt**; die Settings-Masken Benutzer, Rollen, Feldgruppen und Dokumenttypen sind da. Ablagen und externe Systeme sind noch Platzhalter. Feingranular-RBAC an der API fehlt noch; Benutzer-, Rollen-, Feldgruppen- und Dokumenttypen-API prüfen die Rolle `admin`.
 
 Vorhanden:
 
 - Go-Modul `github.com/willie68/arcivio`, Servicename `arcivio`, Go 1.26
 - Repo-Layout: `backend/` (Go), `frontend/` (Vite/Vue), `bruno/`, `scripts/`
-- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp,users,roles}`
+- Clean/Hexagonal: `backend/cmd/service`, `backend/internal/bootstrap`, `backend/internal/config`, `backend/internal/infrastructure/{shttp,health,logging}`, `backend/internal/adapter/inbound/http/{api,apiv1,auth,idp,users,roles,fieldgroups,doctypes}`
 - YAML-Config (`-c`, `${}`, `secretfile`), Logging inkl. GELF/VictoriaLogs, OTEL, Prometheus
 - Outbound `adapter/outbound/store` mit `type: sqlite` (`modernc.org/sqlite`) und `adapter/outbound/identity/sqlite` (Tabelle `users`: Loginname eindeutig, Vorname, Name, E-Mail, `last_login`)
 - Domain `identity` (User, Argon2id, Bootstrap, Passwortwechsel, CreateUser, UpdateUser, DeleteUser, LastLogin bei erfolgreichem Login); Rollenprüfung über Domain `roles`
@@ -29,7 +29,7 @@ Vorhanden:
 - Benutzer-Menü: Mein Konto (Dialog mit Loginname, Vorname, Name, E-Mail, LastLogin), Passwort ändern (Dialog im Client-Bereich), Info, Logout
 - Client-Start: Dashboard mit Filter und einklappbaren Bereichen Useraktionen (leer = zu), Ablagen/Ordner (Default, Auditlog, Eingang), Status (Platzhalterzahlen)
 - Einstellungen: Baum links inkl. Filter, Seite in der Mitte, Hilfe rechts ein-/ausklappbar (zu: nur „?“); live, ohne Save
-- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen, Bearbeiten, Passwort-Reset und Löschen. Rollen stehen mit Anzeigenamen. Blatt Rollen: Tabelle mit technischem Namen und Labels (de/en); die selektierte Zeile schreibt die Beschreibung in die Hilfespalte. Blatt Feldgruppen: CRUD der Definitionen. Platzhalter: Ablagen, Typen, externe Systeme
+- Settings-Blatt Benutzer: paginierte, sortierbare Tabelle, Präfixfilter, Anlegen, Bearbeiten, Passwort-Reset und Löschen. Rollen stehen mit Anzeigenamen. Blatt Rollen: Tabelle mit technischem Namen und Labels (de/en); die selektierte Zeile schreibt die Beschreibung in die Hilfespalte. Blatt Feldgruppen: CRUD der Definitionen, schreibgeschützte Systemgruppen. Blatt Typen: Zusammensetzung aus Feldgruppen, Export/Import als JSON. Platzhalter: Ablagen, externe Systeme
 - Vite-Dev (`npm run dev`, Port 5173) proxyt `/auth`, `/api`, `/swagger`, `/livez`, `/readyz` zum Go-HTTPS
 - Health `/livez` `/readyz`, Swagger `/swagger/` (`/me`), `data/` und `frontend/node_modules/` gitignored
 - JWT aktiv (`auth.type: jwt`); Signaturprüfung über den IdP-Verifier
@@ -38,7 +38,7 @@ Vorhanden:
 
 Vorlagenreste (Tenant, Bruno-Address, Postman, `gomicro`-Namen) sind entfernt. `pkg/pmodel` und `pkg/client` existieren nicht (Address-Client bewusst entfernt, pmodel nie mitkopiert).
 
-Nächster Schritt: **Ablagen** (anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m), danach **Dokumente + Typen**. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
+Nächster Schritt: **Ablagen** (anlegen, Pfad, optionales Masterpasswort nur bei Create, Typ-Zuordnung n:m). Der Typenkatalog in der Instanz ist da; Typkopie in der Ablage und Dokumente fehlen noch. RBAC-Durchsetzung mit den ersten Fach-APIs; OIDC Entra/Apple bleibt Phase 10.
 
 ## Offene Arbeitspakete
 
@@ -46,11 +46,11 @@ Nächster Schritt: **Ablagen** (anlegen, Pfad, optionales Masterpasswort nur bei
 - [x] Vorlagenreste: Tenant-Pflicht/Claims entfernt, Bruno ohne Address-Vars, Docker/Makefile-Binary `arcivio`
 - [x] Interner IdP: lokale Nutzer (Argon2id), OIDC Code+PKCE, JWT-Validierung, Bootstrap-Admin + Pflichtwechsel
 - [x] UI-Gerüst: App-Shell, Aura, i18n DE/EN, Client/Einstellungen-Toggle, User-Menü, Settings-Baum mit 5 Platzhalterseiten
-- [ ] Settings-Masken live ohne Save (Benutzer, Rollen und Feldgruppen sind da; Ablagen, Typen, externe Systeme fehlen)
-- [x] Feldgruppen-CRUD: Instanz-SQLite `field_groups`, API `/api/v1/field-groups`, Einstellungsblatt unter Dokumenttypen
+- [ ] Settings-Masken live ohne Save (Benutzer, Rollen, Feldgruppen und Typen sind da; Ablagen und externe Systeme fehlen)
+- [x] Feldgruppen-CRUD: Instanz-SQLite `field_groups`, API `/api/v1/field-groups`, Einstellungsblatt unter Dokumenttypen. Mitgelieferte Gruppen aus `fieldgroups.json` werden beim Start ergänzt und sind `readonly`
 - [ ] Ablagen (Stores): selbsttragendes Verzeichnis pro Ablage, Default-Store beim ersten Start, optionales Masterpasswort nur bei Anlage
 - [ ] RBAC an der API durchsetzen (Benutzer-API prüft `admin`; Permissions `document.create` etc. fehlen)
-- [ ] Dokumenttypen: Typ als geordnete Zusammensetzung von Feldgruppen; Felder archival vs. fluid; Zuordnung Typ↔Ablage n:m; Typkopie (aufgelöstes Schema) in der Ablage beim ersten Ablegen
+- [ ] Dokumenttypen: geordnete Zusammensetzung, feste System-Gruppe und JSON-Export/Import sind da. Offen: Felder archival vs. fluid, Zuordnung Typ↔Ablage n:m, Typkopie (aufgelöstes Schema) in der Ablage beim ersten Ablegen
 - [ ] Selbsttragende DOC-Envelopes, Löschen per DEL-Record im aktuellen Volume (alte Container unverändert), Restore, Siegel/Signatur
 - [ ] Auditlog: bereichsweise YAML-Schalter, AUDIT-Envelopes im Auto-Store `_audit`, Admin-Einsicht, Hash-Kette, keine Rekursion
 - [ ] Optionale At-Rest-Verschlüsselung **pro Ablage** (Masterpasswort bei Anlage); ohne Passwort bleibt das Verzeichnis offen; ML-KEM-Hybrid + AES-256-GCM
@@ -188,8 +188,8 @@ Noch geplant (als Domain + Ports + Adapter, nicht als `internal/services`):
 
 - **User / Role / Permission / Group** – Instanzebene, nicht in der Ablage
 - **Store (Ablage):** selbsttragendes Verzeichnis; Registry-Eintrag in der Instanz (ID, Name, Pfad, verschlüsselt ja/nein)
-- **FieldGroup (Feldgruppe):** kanonisch in der Instanz-SQLite (`field_groups`). Technischer Name der Gruppe ist eindeutig. Ein Feld hat technischen Namen (eindeutig **in der Gruppe**, ohne Groß-/Kleinschreibung), Labels und Beschreibung (de/en) und `valueType` (`bool`, `int`, `decimal`, `double`, `text`, `multiline`, `datetime`). Pflicht und `persistence` folgen später. Dieselbe Feldgruppe darf in mehreren Dokumenttypen vorkommen
-- **DocumentType:** Name, geordnete Liste von Feldgruppen, Default-Aufbewahrung, Archivpflicht. Das wirksame Schema ist die Vereinigung der Gruppen in dieser Reihenfolge. Kanonisch in der Instanz; Kopie in der Ablage, sobald dort ein Dokument dieses Typs liegt. Die Kopie speichert das aufgelöste Schema, nicht nur die Gruppen-IDs
+- **FieldGroup (Feldgruppe):** kanonisch in der Instanz-SQLite (`field_groups`). Technischer Name der Gruppe ist eindeutig. Ein Feld hat technischen Namen (eindeutig **in der Gruppe**, ohne Groß-/Kleinschreibung), Labels und Beschreibung (de/en) und `valueType` (`bool`, `int`, `decimal`, `double`, `text`, `multiline`, `datetime`, `intref`, `file`). `mandatory` (bool) verlangt, dass das Feld vor dem Speichern einen Wert hat. `persistence` folgt später. `readonly` schützt mitgelieferte Gruppen vor Änderung und Löschen. Dieselbe Feldgruppe darf in mehreren Dokumenttypen vorkommen
+- **DocumentType:** Name, geordnete Liste von Feldgruppen-IDs. Die Gruppe `system` ist immer enthalten und kann nicht entfernt werden. Default-Aufbewahrung und Archivpflicht folgen. Das wirksame Schema ist die Vereinigung der Gruppen in dieser Reihenfolge. Kanonisch in der Instanz; Kopie in der Ablage, sobald dort ein Dokument dieses Typs liegt. Die Kopie speichert das aufgelöste Schema, nicht nur die Gruppen-IDs
 - **StoreTypeAssignment:** n:m zwischen Typ und Ablage (ein Typ in mehreren Ablagen, eine Ablage mit mehreren Typen)
 - **Document:** Ablage, Typ, Status (`inbox` / `active` / `archived`), MIME, Originalname, Verweis auf aktuelle Blob-Version
 - **Version:** nur wenn sich **archival** Inhalt oder **archival** Attribute ändern; Blob nie überschreiben
@@ -209,7 +209,38 @@ Ein Dokumenttyp **setzt** solche Gruppen in eine feste Reihenfolge **zusammen**.
 
 Die Typkopie unter `types/` und der Archiv-Snapshot enthalten die Felder der Gruppen, wie sie beim Kopieren bzw. Archivieren galten. Eine eingehängte Ablage bleibt lesbar, auch wenn der Instanz-Katalog die Feldgruppen nicht kennt.
 
-Einstellungen: **Dokumenttypen** ist eine Navigationsgruppe mit den Blättern **Feldgruppen** (CRUD) und **Typen** (noch Platzhalter). Die API ist `GET/POST /api/v1/field-groups`, `GET/PUT/DELETE /api/v1/field-groups/{id}` und verlangt die Rolle `admin`. Die Felder einer Gruppe liegen als JSON in der Zeile; der Gruppenname ist zusätzlich indiziert, damit er eindeutig bleibt.
+Einstellungen: **Dokumenttypen** ist eine Navigationsgruppe mit den Blättern **Feldgruppen** und **Typen**. Beide verlangen die Rolle `admin`.
+
+Feldgruppen: `GET/POST /api/v1/field-groups`, `GET/PUT/DELETE /api/v1/field-groups/{id}`. Die Felder einer Gruppe liegen als JSON in der Zeile; der Gruppenname ist zusätzlich indiziert, damit er eindeutig bleibt. `fieldgroups.json` (`system`, `attachment`, `retention`) wird bei jedem Start geprüft und fehlende Ids werden eingefügt. Diese Gruppen sind `readonly`: kein Ändern, kein Löschen, in der Oberfläche ein Schloss. Werttypen `intref` und `file` sind in der Felddefinition wählbar.
+
+Typen: Instanz-SQLite `document_types`, `GET/POST /api/v1/document-types`, `GET/PUT/DELETE /api/v1/document-types/{id}`. Ein Typ setzt Feldgruppen in eine feste Reihenfolge. Die Gruppe `system` ist vorausgewählt und lässt sich nicht entfernen. Über das Menü neben den Aktionsbuttons exportiert und importiert man JSON (`GET /api/v1/document-types/export`, `POST /api/v1/document-types/import/preview`, `POST /api/v1/document-types/import`). Die Datei enthält die Typen und die abhängigen Feldgruppen **mit ID**. Schreibgeschützte Systemfeldgruppen stehen nur als ID in der Reihenfolge, ihre Definition wird nicht übertragen. Der Import erkennt Einträge an der ID. Gleiche ID mit abweichendem Inhalt wird nur nach Nachfrage überschrieben; der Dialog zeigt die Unterschiede. Unterscheidet sich die ID, der technische Name ist aber schon vergeben, fragt der Dialog ebenfalls und schlägt einen freien Namen `Name (1)`, `Name (2)`, … vor.
+
+**Werttyp `intref` (internal reference):** Der gespeicherte Wert ist ein JSON-String. Er verweist auf ein internes Objekt, zum Beispiel einen Benutzer, eine Rolle oder ein anderes Dokument. Pflicht ist `reference` im Format `objecttype:id`. Optional sind `filter` und ein mehrsprachiges `label` für die Anzeige.
+
+`filter` dient dazu, dasselbe Objekt in einem fremden System eindeutig zu bestimmen, wenn die interne ID dort nichts gilt. Beim Benutzer ist das typischerweise die E-Mail-Adresse.
+
+```json
+{
+  "reference": "user:458746356wduz",
+  "filter": "w.klaas@gmx.de",
+  "label": {
+    "de": "Wilfried Klaas",
+    "en": "Wilfried Klaas"
+  }
+}
+```
+
+**Werttyp `file`:** Der gespeicherte Wert ist ein JSON-String und beschreibt eine Datei. `reference` zeigt auf den Blob im Format `blob:id`. `hash` trägt Prüfsumme als `algorithm:digest`. `fileName` ist der Dateiname, `contentType` der MIME-Typ, `contentLength` die Größe in Bytes.
+
+```json
+{
+  "reference": "blob:3278572828582",
+  "hash": "sha2:ce8a4927bd6f9858f203bf23d1097c9740e227b1d4846ba35668485b",
+  "fileName": "rechnung.pdf",
+  "contentType": "application/pdf",
+  "contentLength": 3227653
+}
+```
 
 ## Ablagen (Stores)
 
@@ -501,7 +532,7 @@ Der Client-Bereich zeigt entweder den **Arcivio Client** (Start, Default) oder *
 
 Client-Start ist ein Dashboard: links Filter und einklappbare Bereiche (Useraktionen zu, solange leer; Ablagen/Ordner mit Default, Auditlog, Eingang; Status mit Platzhalterwerten), in der Mitte nur der Einführungstext.
 
-Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blätter **Benutzer**, **Rollen** und **Feldgruppen** sind echte Masken. **Dokumenttypen** ist eine Gruppe; **Typen** bleibt Platzhalter. Weitere Platzhalter: Ablagen, externe Systeme.
+Einstellungen: Navigation als Baum inkl. Filter, mittig die Seite, rechts kontextuelle Hilfe (einklappbar, zugeklappt nur „?“). Gruppen können mehrstufig sein; jedes Blatt ist eine Seite, Titel `Ebene 1 - Ebene 2 - …`. Live-Einstellungen, kein Save. Blätter **Benutzer**, **Rollen**, **Feldgruppen** und **Typen** sind echte Masken. **Dokumenttypen** ist die Gruppe darüber. Weitere Platzhalter: Ablagen, externe Systeme.
 
 **Benutzer-Maske:** Tabelle mit Loginname, Vorname, Name, E-Mail, Rollen (Anzeigenamen), letzter Anmeldung. Pagination und Sortierung laufen im Backend (`sort`: `username`, `firstName`, `lastName`, `email`, `roles`, `lastLogin`, `mustChangePassword`). Unter dem Titel: links Präfixfilter (ab 3 Zeichen, sonst ungefiltert), rechts Icon-Buttons Neuer Benutzer, Bearbeiten und Löschen (Löschen mit Mehrfachauswahl und Bestätigung).
 
@@ -614,13 +645,15 @@ Erledigt:
 1. PrimeVue Aura, Brand-Marken, vue-i18n DE/EN nach Browser
 2. App-Shell: Header (Logo, Zahnrad, Hilfe, Benutzer), Client-Bereich, Footer
 3. Geschützte Route `/` in der Shell; `/login` und `/callback` ohne Shell
-4. Client/Einstellungen-Toggle; Settings-Baum mit Filter; Platzhalterseiten Benutzer, Rollen, Ablagen, Dokumenttypen (Feldgruppen, Typen), externe Systeme; Hilfe-Spalte
+4. Client/Einstellungen-Toggle; Settings-Baum mit Filter; Masken Benutzer, Rollen, Dokumenttypen (Feldgruppen, Typen); Platzhalter Ablagen und externe Systeme; Hilfe-Spalte
 5. User-Menü: Konto-Dialog, Passwort-Dialog (im Client-Bereich), Info, Logout
 6. Client-Dashboard: Filter, Useraktionen (zugeklappt wenn leer), Ablagen/Ordner, Status-Platzhalter; Mitte nur Einführungstext
 7. Benutzer-Maske: Tabelle, Präfixfilter, Sortierung, Anlegen, Bearbeiten, Löschen; Rollen als Anzeigenamen, ohne Spalte Passwortwechsel; Hilfe einklappbar; Konto-Dialog mit Profilfeldern
 8. Rollen-Maske: Katalog aus `GET /api/v1/roles` (technischer Name, Labels de/en); selektierte Zeile zeigt die Beschreibung in der Hilfespalte. Fehlende Admin-Rolle: Hinweis auf der Seite, kein Login-Redirect
+9. Feldgruppen-Maske: CRUD, Pflichtfeld, Werttypen inklusive `intref` und `file`. Schreibgeschützte Systemgruppen mit Schloss, ohne Bearbeiten und Löschen
+10. Typen-Maske: geordnete Feldgruppen, System-Gruppe fest. Menü Export/Import (JSON, mit ID). Nachfrage bei gleicher ID oder belegtem technischen Namen
 
-Offen in dieser Phase: übrige Settings-Masken (Ablagen, Typen, externe Systeme). Feldgruppen-CRUD ist da.
+Offen in dieser Phase: übrige Settings-Masken (Ablagen, externe Systeme). Aufbewahrung, Archivpflicht und Typkopie in der Ablage fehlen noch.
 
 Akzeptanz Gerüst: angemeldeter User sieht einheitliches Layout; Login sieht aus wie dasselbe Produkt.
 

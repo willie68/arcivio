@@ -27,6 +27,7 @@ type FieldResponse struct {
 	Labels      TextResponse `json:"labels"`
 	Description TextResponse `json:"description"`
 	ValueType   string       `json:"valueType"`
+	Mandatory   bool         `json:"mandatory"`
 }
 
 // GroupResponse is one field group definition.
@@ -35,6 +36,7 @@ type GroupResponse struct {
 	Name        string          `json:"name"`
 	Labels      TextResponse    `json:"labels"`
 	Description TextResponse    `json:"description"`
+	Readonly    bool            `json:"readonly"`
 	Fields      []FieldResponse `json:"fields"`
 }
 
@@ -230,6 +232,7 @@ func toInput(body groupBody) fieldgroup.Input {
 			Labels:      fieldgroup.Text{De: field.Labels.De, En: field.Labels.En},
 			Description: fieldgroup.Text{De: field.Description.De, En: field.Description.En},
 			ValueType:   field.ValueType,
+			Mandatory:   field.Mandatory,
 		})
 	}
 	return fieldgroup.Input{
@@ -248,6 +251,7 @@ func toResponse(group fieldgroup.Group) GroupResponse {
 			Labels:      TextResponse{De: field.Labels.De, En: field.Labels.En},
 			Description: TextResponse{De: field.Description.De, En: field.Description.En},
 			ValueType:   field.ValueType,
+			Mandatory:   field.Mandatory,
 		})
 	}
 	return GroupResponse{
@@ -255,6 +259,7 @@ func toResponse(group fieldgroup.Group) GroupResponse {
 		Name:        group.Name,
 		Labels:      TextResponse{De: group.Labels.De, En: group.Labels.En},
 		Description: TextResponse{De: group.Description.De, En: group.Description.En},
+		Readonly:    group.Readonly,
 		Fields:      fields,
 	}
 }
@@ -267,6 +272,8 @@ func writeGroupError(w http.ResponseWriter, r *http.Request, err error) {
 		httputils.Err(w, r, serror.NotFound("field-group", "", err))
 	case errors.Is(err, fieldgroup.ErrInvalid):
 		httputils.Err(w, r, serror.BadRequest(err, "invalid-field-group", "invalid field group"))
+	case errors.Is(err, fieldgroup.ErrReadonly):
+		httputils.Err(w, r, serror.New(http.StatusConflict, "readonly", "field group is read-only"))
 	default:
 		httputils.Err(w, r, err)
 	}

@@ -58,11 +58,39 @@ func (s *Service) Create(ctx context.Context, in Input) (*Group, error) {
 	return &group, nil
 }
 
+// CreateWithID stores a new field group under a given id.
+func (s *Service) CreateWithID(ctx context.Context, id string, in Input) (*Group, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, ErrInvalid
+	}
+	if _, err := s.Get(ctx, id); err == nil {
+		return nil, ErrAlreadyExists
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	group, err := normalize(in)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.ensureNameFree(ctx, group.Name, ""); err != nil {
+		return nil, err
+	}
+	group.ID = id
+	if err := s.store.Create(ctx, group); err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+
 // Update replaces name, texts and fields of an existing group.
 func (s *Service) Update(ctx context.Context, id string, in Input) (*Group, error) {
 	current, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if current.Readonly {
+		return nil, ErrReadonly
 	}
 	group, err := normalize(in)
 	if err != nil {
@@ -72,6 +100,7 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Group, erro
 		return nil, err
 	}
 	group.ID = current.ID
+	group.Readonly = current.Readonly
 	if err := s.store.Update(ctx, group); err != nil {
 		return nil, err
 	}
@@ -80,10 +109,41 @@ func (s *Service) Update(ctx context.Context, id string, in Input) (*Group, erro
 
 // Delete removes a field group.
 func (s *Service) Delete(ctx context.Context, id string) error {
-	if _, err := s.Get(ctx, id); err != nil {
+	current, err := s.Get(ctx, id)
+	if err != nil {
 		return err
 	}
+	if current.Readonly {
+		return ErrReadonly
+	}
 	return s.store.Delete(ctx, id)
+}
+
+// EnsureBuiltin stores each shipped field group that is not already present.
+func (s *Service) EnsureBuiltin(ctx context.Context) error {
+	shipped, err := builtinGroups()
+	if err != nil {
+		return err
+	}
+	for _, group := range shipped {
+		_, err := s.store.GetByID(ctx, group.ID)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		if _, err := s.store.GetByName(ctx, group.Name); err == nil {
+			return ErrAlreadyExists
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		group.Readonly = true
+		if err := s.store.Create(ctx, group); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) ensureNameFree(ctx context.Context, name, exceptID string) error {
@@ -101,7 +161,7 @@ func (s *Service) ensureNameFree(ctx context.Context, name, exceptID string) err
 }
 
 func normalize(in Input) (Group, error) {
-	name, err := normalizeName(in.Name)
+	name, err := normalizeCatalogName(in.Name)
 	if err != nil {
 		return Group{}, err
 	}
@@ -140,10 +200,19 @@ func normalizeField(field Field) (Field, error) {
 		Labels:      trimText(field.Labels),
 		Description: trimText(field.Description),
 		ValueType:   field.ValueType,
+		Mandatory:   field.Mandatory,
 	}, nil
 }
 
 func normalizeName(raw string) (string, error) {
+	return normalizeLabeledName(raw, false)
+}
+
+func normalizeCatalogName(raw string) (string, error) {
+	return normalizeLabeledName(raw, true)
+}
+
+func normalizeLabeledName(raw string, catalog bool) (string, error) {
 	name := strings.TrimSpace(raw)
 	if name == "" || utf8.RuneCountInString(name) > maxNameLen {
 		return "", ErrInvalid
@@ -152,6 +221,7 @@ func normalizeName(raw string) (string, error) {
 		switch {
 		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
 		case i > 0 && (r >= '0' && r <= '9' || r == '_'):
+		case catalog && i > 0 && (r == ' ' || r == '(' || r == ')'):
 		default:
 			return "", ErrInvalid
 		}

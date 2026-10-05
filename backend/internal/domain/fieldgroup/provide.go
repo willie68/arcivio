@@ -1,9 +1,18 @@
 package fieldgroup
 
-import "github.com/samber/do/v2"
+import (
+	"context"
+	"fmt"
 
-// Provide wires the field-group service from Store.
+	"github.com/samber/do/v2"
+)
+
+// Provide wires the field-group service from Store and imports shipped groups.
 func Provide(inj do.Injector) error {
-	do.ProvideValue(inj, New(do.MustInvokeAs[Store](inj)))
+	svc := New(do.MustInvokeAs[Store](inj))
+	if err := svc.EnsureBuiltin(context.Background()); err != nil {
+		return fmt.Errorf("field group catalog: %w", err)
+	}
+	do.ProvideValue(inj, svc)
 	return nil
 }

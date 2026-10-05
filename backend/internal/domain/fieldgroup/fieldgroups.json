@@ -1,0 +1,255 @@
+{
+    "system": {
+        "id": "system",
+        "name": "system",
+        "labels": {
+            "de": "System",
+            "en": "System"
+        },
+        "description": {
+            "de": "Systemfelder",
+            "en": "System fields"
+        },
+        "readonly": true,
+        "fields": [
+            {
+                "name": "ID",
+                "valueType": "string",
+                "labels": {
+                    "de": "ID",
+                    "en": "ID"
+                },
+                "description": {
+                    "de": "ID des Records",
+                    "en": "ID of the record"
+                },
+                "mandatory": true
+            },
+            {
+                "name": "rootID",
+                "valueType": "string",
+                "labels": {
+                    "de": "Root ID",
+                    "en": "Root ID"
+                },
+                "description": {
+                    "de": "ID des Ursprungs-Version",
+                    "en": "ID of the root version"
+                },
+                "mandatory": true
+            },
+            {
+                "name": "parentID",
+                "valueType": "string",
+                "labels": {
+                    "de": "Parent ID",
+                    "en": "Parent ID"
+                },
+                "description": {
+                    "de": "ID der vorherigen Version",
+                    "en": "ID of the previous version"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "state",
+                "valueType": "string",
+                "labels": {
+                    "de": "Status",
+                    "en": "Status"
+                },
+                "description": {
+                    "de": "Status des Records",
+                    "en": "Status of the record"
+                },
+                "mandatory": true
+            },
+            {
+                "name": "createdAt",
+                "valueType": "date",
+                "labels": {
+                    "de": "Erstellt am",
+                    "en": "Created at"
+                },
+                "description": {
+                    "de": "Datum und Uhrzeit der Erstellung des Records",
+                    "en": "Date and time of creation of the record"
+                },
+                "mandatory": true
+            },
+            {
+                "name": "creator",
+                "valueType": "intref:user",
+                "labels": {
+                    "de": "Erstellt von",
+                    "en": "Created by"
+                },
+                "description": {
+                    "de": "Benutzer, der das Record erstellt hat",
+                    "en": "User who created the record"
+                },
+                "mandatory": true
+            },
+            {
+                "name": "updatedAt",
+                "valueType": "date",
+                "labels": {
+                    "de": "Aktualisiert am",
+                    "en": "Updated at"
+                },
+                "description": {
+                    "de": "Datum und Uhrzeit der letzten Aktualisierung des Records",
+                    "en": "Date and time of the last update of the record"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "updater",
+                "valueType": "intref:user",
+                "labels": {
+                    "de": "Aktualisiert von",
+                    "en": "Updated by"
+                },
+                "description": {
+                    "de": "Benutzer, der das Record zuletzt aktualisiert hat",
+                    "en": "User who last updated the record"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "version",
+                "valueType": "int",
+                "labels": {
+                    "de": "Version",
+                    "en": "Version"
+                },
+                "description": {
+                    "de": "Version des Records",
+                    "en": "Version of the record"
+                },
+                "mandatory": true
+            },
+            {
+                "name": "title",
+                "valueType": "string",
+                "labels": {
+                    "de": "Titel",
+                    "en": "Title"
+                },
+                "description": {
+                    "de": "Titel des Records",
+                    "en": "Title of the record"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "foreignID",
+                "valueType": "string",
+                "labels": {
+                    "de": "Foreign ID",
+                    "en": "Foreign ID"
+                },
+                "description": {
+                    "de": "ID des Records in einem externen System",
+                    "en": "ID of the record in an external system"
+                },
+                "mandatory": false
+            }
+        ]
+    },
+    "attachment": {
+        "id": "attachment",
+        "name": "attachment",
+        "labels": {
+            "de": "Anhang",
+            "en": "Attachment"
+        },
+        "description": {
+            "de": "Anhangfelder",
+            "en": "Attachment fields"
+        },
+        "readonly": true,
+        "fields": [
+            {
+                "name": "attachment",
+                "valueType": "file",
+                "labels": {
+                    "de": "Anhang",
+                    "en": "Attachment"
+                },
+                "description": {
+                    "de": "Anhang des Records",
+                    "en": "Attachment of the record"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "fulltext",
+                "valueType": "string",
+                "labels": {
+                    "de": "Volltext",
+                    "en": "Fulltext"
+                },
+                "description": {
+                    "de": "Volltext des Anhangs",
+                    "en": "Fulltext of the attachment"
+                },
+                "mandatory": false
+            }
+        ]
+    },
+    "retention": {
+        "id": "retention",
+        "name": "retention",
+        "labels": {
+            "de": "Erhaltung",
+            "en": "Retention"
+        },
+        "description": {
+            "de": "Löschschutz",
+            "en": "Deletion protection"
+        },
+        "readonly": true,
+        "fields": [
+            {
+                "name": "retention_time",
+                "valueType": "datetime",
+                "labels": {
+                    "de": "Erhaltungszeit",
+                    "en": "Retention time"
+                },
+                "description": {
+                    "de": "Erhaltungszeit",
+                    "en": "Retention time"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "retention_period",
+                "valueType": "int",
+                "labels": {
+                    "de": "Erhaltungsdauer",
+                    "en": "Retention period"
+                },
+                "description": {
+                    "de": "Erhaltungsdauer",
+                    "en": "Retention period"
+                },
+                "mandatory": false
+            },
+            {
+                "name": "on_hold",
+                "valueType": "bool",
+                "labels": {
+                    "de": "Aufschub",
+                    "en": "On hold"
+                },
+                "description": {
+                    "de": "Aufschub des Löschschutzes",
+                    "en": "Hold of the deletion protection"
+                },
+                "mandatory": false
+            }
+        ]
+    }
+}

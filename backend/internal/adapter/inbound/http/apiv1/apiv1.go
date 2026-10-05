@@ -16,6 +16,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
+	doctypeshandler "github.com/willie68/arcivio/internal/adapter/inbound/http/doctypes"
 	fieldgroupshandler "github.com/willie68/arcivio/internal/adapter/inbound/http/fieldgroups"
 	idphandler "github.com/willie68/arcivio/internal/adapter/inbound/http/idp"
 	roleshandler "github.com/willie68/arcivio/internal/adapter/inbound/http/roles"
@@ -87,6 +88,7 @@ func APIRoutes(inj do.Injector, cfn config.Config) (*chi.Mux, error) {
 		r.Mount(usershandler.New(inj).Routes())
 		r.Mount(roleshandler.New(inj).Routes())
 		r.Mount(fieldgroupshandler.New(inj).Routes())
+		r.Mount(doctypeshandler.New(inj).Routes())
 	})
 	if jwtErr != nil {
 		return nil, jwtErr

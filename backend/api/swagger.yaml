@@ -2,7 +2,15 @@ basePath: /api/v1
 definitions:
   apiv1.MeResponse:
     properties:
+      email:
+        type: string
+      firstName:
+        type: string
       id:
+        type: string
+      lastLogin:
+        type: string
+      lastName:
         type: string
       mustChangePassword:
         type: boolean
@@ -32,6 +40,41 @@ paths:
         "401":
           description: Unauthorized
       summary: Current user
+      tags:
+      - identity
+    patch:
+      consumes:
+      - application/json
+      description: Changes first name, last name and email of the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiv1.MeResponse'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      summary: Update own profile
+      tags:
+      - identity
+  /me/password:
+    post:
+      consumes:
+      - application/json
+      description: Changes the password of the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      summary: Change own password
       tags:
       - identity
 swagger: "2.0"
