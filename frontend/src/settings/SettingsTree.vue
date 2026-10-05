@@ -52,6 +52,7 @@ function filterNodes(nodes: NavNode[], needle: string): NavNode[] {
         :nodes="visibleNodes"
         :selected-id="selectedId"
         :collapsed="collapsed"
+        :force-expand="filter.trim().length > 0"
         @select="emit('select', $event)"
       />
     </ul>

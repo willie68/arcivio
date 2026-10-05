@@ -397,7 +397,7 @@ onMounted(() => {
       </Column>
     </DataTable>
 
-    <Dialog v-model:visible="editorOpen" modal :style="{ width: '40rem' }">
+    <Dialog v-model:visible="editorOpen" modal :style="{ width: 'min(56rem, 94vw)' }">
       <template #header>
         <span class="dlg-title">
           {{ editorTitle }}
@@ -410,30 +410,36 @@ onMounted(() => {
         </span>
       </template>
       <form class="form" @submit.prevent="submit">
-        <label v-if="editingId">
-          {{ t("settings.fieldGroups.id") }}
-          <input :value="editingId" readonly tabindex="-1" class="readonly" />
-        </label>
-        <label>
-          {{ t("settings.fieldGroups.name") }}
-          <input v-model="form.name" required autocomplete="off" :disabled="readonlyView" />
-        </label>
-        <label>
-          {{ t("settings.fieldGroups.labelDe") }}
-          <input v-model="form.labels.de" autocomplete="off" :disabled="readonlyView" />
-        </label>
-        <label>
-          {{ t("settings.fieldGroups.labelEn") }}
-          <input v-model="form.labels.en" autocomplete="off" :disabled="readonlyView" />
-        </label>
-        <label>
-          {{ t("settings.fieldGroups.descriptionDe") }}
-          <textarea v-model="form.description.de" rows="2" :disabled="readonlyView" />
-        </label>
-        <label>
-          {{ t("settings.fieldGroups.descriptionEn") }}
-          <textarea v-model="form.description.en" rows="2" :disabled="readonlyView" />
-        </label>
+        <div class="pair">
+          <label v-if="editingId">
+            {{ t("settings.fieldGroups.id") }}
+            <input :value="editingId" readonly tabindex="-1" class="readonly" />
+          </label>
+          <label :class="{ span2: !editingId }">
+            {{ t("settings.fieldGroups.name") }}
+            <input v-model="form.name" required autocomplete="off" :disabled="readonlyView" />
+          </label>
+        </div>
+        <div class="pair">
+          <label>
+            {{ t("settings.fieldGroups.labelDe") }}
+            <input v-model="form.labels.de" autocomplete="off" :disabled="readonlyView" />
+          </label>
+          <label>
+            {{ t("settings.fieldGroups.labelEn") }}
+            <input v-model="form.labels.en" autocomplete="off" :disabled="readonlyView" />
+          </label>
+        </div>
+        <div class="pair">
+          <label>
+            {{ t("settings.fieldGroups.descriptionDe") }}
+            <textarea v-model="form.description.de" rows="2" :disabled="readonlyView" />
+          </label>
+          <label>
+            {{ t("settings.fieldGroups.descriptionEn") }}
+            <textarea v-model="form.description.en" rows="2" :disabled="readonlyView" />
+          </label>
+        </div>
         <fieldset class="fields">
           <legend>{{ t("settings.fieldGroups.fields") }}</legend>
           <article v-for="(field, index) in form.fields" :key="index" class="field">
@@ -457,39 +463,45 @@ onMounted(() => {
               </div>
             </div>
             <template v-if="fieldOpen[index]">
-            <label>
-              {{ t("settings.fieldGroups.name") }}
-              <input v-model="field.name" required autocomplete="off" :disabled="readonlyView" />
-            </label>
-            <label>
-              {{ t("settings.fieldGroups.valueType") }}
-              <select v-model="field.valueType" :disabled="readonlyView">
-                <option v-if="!knownValueType(field.valueType)" :value="field.valueType">{{ field.valueType }}</option>
-                <option v-for="valueType in fieldValueTypes" :key="valueType" :value="valueType">
-                  {{ t(`settings.fieldGroups.valueTypes.${valueType}`) }}
-                </option>
-              </select>
-            </label>
+            <div class="pair">
+              <label>
+                {{ t("settings.fieldGroups.name") }}
+                <input v-model="field.name" required autocomplete="off" :disabled="readonlyView" />
+              </label>
+              <label>
+                {{ t("settings.fieldGroups.valueType") }}
+                <select v-model="field.valueType" :disabled="readonlyView">
+                  <option v-if="!knownValueType(field.valueType)" :value="field.valueType">{{ field.valueType }}</option>
+                  <option v-for="valueType in fieldValueTypes" :key="valueType" :value="valueType">
+                    {{ t(`settings.fieldGroups.valueTypes.${valueType}`) }}
+                  </option>
+                </select>
+              </label>
+            </div>
             <label class="check">
               <input v-model="field.mandatory" type="checkbox" :disabled="readonlyView" />
               {{ t("settings.fieldGroups.mandatory") }}
             </label>
-            <label>
-              {{ t("settings.fieldGroups.labelDe") }}
-              <input v-model="field.labels.de" autocomplete="off" :disabled="readonlyView" />
-            </label>
-            <label>
-              {{ t("settings.fieldGroups.labelEn") }}
-              <input v-model="field.labels.en" autocomplete="off" :disabled="readonlyView" />
-            </label>
-            <label>
-              {{ t("settings.fieldGroups.descriptionDe") }}
-              <textarea v-model="field.description.de" rows="2" :disabled="readonlyView" />
-            </label>
-            <label>
-              {{ t("settings.fieldGroups.descriptionEn") }}
-              <textarea v-model="field.description.en" rows="2" :disabled="readonlyView" />
-            </label>
+            <div class="pair">
+              <label>
+                {{ t("settings.fieldGroups.labelDe") }}
+                <input v-model="field.labels.de" autocomplete="off" :disabled="readonlyView" />
+              </label>
+              <label>
+                {{ t("settings.fieldGroups.labelEn") }}
+                <input v-model="field.labels.en" autocomplete="off" :disabled="readonlyView" />
+              </label>
+            </div>
+            <div class="pair">
+              <label>
+                {{ t("settings.fieldGroups.descriptionDe") }}
+                <textarea v-model="field.description.de" rows="2" :disabled="readonlyView" />
+              </label>
+              <label>
+                {{ t("settings.fieldGroups.descriptionEn") }}
+                <textarea v-model="field.description.en" rows="2" :disabled="readonlyView" />
+              </label>
+            </div>
             </template>
           </article>
           <Button v-if="!readonlyView" type="button" :label="t('settings.fieldGroups.addField')" text @click="addField" />
@@ -548,6 +560,14 @@ onMounted(() => {
 .form {
   display: grid;
   gap: 0.75rem;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.pair > .span2 {
+  grid-column: 1 / -1;
 }
 .form label,
 .form legend {

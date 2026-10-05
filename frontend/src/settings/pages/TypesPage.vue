@@ -586,29 +586,39 @@ onMounted(() => {
       </Column>
     </DataTable>
 
-    <Dialog v-model:visible="editorOpen" modal :header="editorTitle" :style="{ width: '36rem' }">
+    <Dialog v-model:visible="editorOpen" modal :header="editorTitle" :style="{ width: 'min(56rem, 94vw)' }">
       <form class="form" @submit.prevent="submit">
         <p v-if="formError" class="error">{{ formError }}</p>
-        <label>
-          {{ t("settings.types.name") }}
-          <input v-model="form.name" required autocomplete="off" />
-        </label>
-        <label>
-          {{ t("settings.types.labelDe") }}
-          <input v-model="form.labels.de" autocomplete="off" />
-        </label>
-        <label>
-          {{ t("settings.types.labelEn") }}
-          <input v-model="form.labels.en" autocomplete="off" />
-        </label>
-        <label>
-          {{ t("settings.types.descriptionDe") }}
-          <textarea v-model="form.description.de" rows="2" />
-        </label>
-        <label>
-          {{ t("settings.types.descriptionEn") }}
-          <textarea v-model="form.description.en" rows="2" />
-        </label>
+        <div class="pair">
+          <label v-if="editingId">
+            {{ t("settings.types.id") }}
+            <input :value="editingId" readonly tabindex="-1" class="readonly" />
+          </label>
+          <label :class="{ span2: !editingId }">
+            {{ t("settings.types.name") }}
+            <input v-model="form.name" required autocomplete="off" />
+          </label>
+        </div>
+        <div class="pair">
+          <label>
+            {{ t("settings.types.labelDe") }}
+            <input v-model="form.labels.de" autocomplete="off" />
+          </label>
+          <label>
+            {{ t("settings.types.labelEn") }}
+            <input v-model="form.labels.en" autocomplete="off" />
+          </label>
+        </div>
+        <div class="pair">
+          <label>
+            {{ t("settings.types.descriptionDe") }}
+            <textarea v-model="form.description.de" rows="2" />
+          </label>
+          <label>
+            {{ t("settings.types.descriptionEn") }}
+            <textarea v-model="form.description.en" rows="2" />
+          </label>
+        </div>
         <fieldset class="groups">
           <legend>{{ t("settings.types.fieldGroups") }}</legend>
           <div v-for="(id, index) in form.fieldGroups" :key="id" class="group">
@@ -746,6 +756,20 @@ onMounted(() => {
 .form {
   display: grid;
   gap: 0.75rem;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.pair > .span2 {
+  grid-column: 1 / -1;
+}
+.form input.readonly {
+  background: #f3f5f7;
+  color: #5a6672;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9rem;
 }
 .form label,
 .form legend {

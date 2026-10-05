@@ -160,6 +160,7 @@ export default {
       loadError: "Rollen konnten nicht geladen werden.",
     },
     types: {
+      id: "ID",
       name: "Technischer Name",
       label: "Bezeichnung",
       labelDe: "Bezeichnung (de)",

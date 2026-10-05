@@ -160,6 +160,7 @@ export default {
       loadError: "Roles could not be loaded.",
     },
     types: {
+      id: "ID",
       name: "Technical name",
       label: "Label",
       labelDe: "Label (de)",

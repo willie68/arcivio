@@ -11,6 +11,8 @@ const props = defineProps<{
   selectedId: string;
   depth?: number;
   collapsed?: boolean;
+  /** While the tree filter is active, groups stay open so matches stay visible. */
+  forceExpand?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -21,7 +23,7 @@ const expanded = ref<Record<string, boolean>>({});
 const depth = props.depth ?? 0;
 
 function isExpanded(id: string) {
-  return expanded.value[id] !== false;
+  return props.forceExpand || expanded.value[id] === true;
 }
 
 function toggle(id: string) {
@@ -54,6 +56,8 @@ function onClick(node: NavNode) {
       v-tooltip.right="collapsed ? node.label : undefined"
       @click="onClick(node)"
     >
+      <i class="pi item-icon" :class="node.icon" aria-hidden="true" />
+      <span v-if="!collapsed" class="label">{{ node.label }}</span>
       <i
         v-if="!collapsed && node.children?.length"
         class="pi chevron"
@@ -61,8 +65,6 @@ function onClick(node: NavNode) {
         aria-hidden="true"
         @click.stop="toggle(node.id)"
       />
-      <i class="pi item-icon" :class="node.icon" aria-hidden="true" />
-      <span v-if="!collapsed">{{ node.label }}</span>
     </button>
     <ul v-if="!collapsed && node.children?.length && isExpanded(node.id)" role="group">
       <SettingsTreeNode
@@ -70,6 +72,7 @@ function onClick(node: NavNode) {
         :selected-id="selectedId"
         :depth="depth + 1"
         :collapsed="collapsed"
+        :force-expand="forceExpand"
         @select="emit('select', $event)"
       />
     </ul>
@@ -111,7 +114,12 @@ ul {
   color: #1f4b99;
   font-weight: 600;
 }
+.row .label {
+  flex: 1;
+  min-width: 0;
+}
 .row .chevron {
+  margin-left: auto;
   font-size: 0.7rem;
   color: #5b6570;
 }
