@@ -102,7 +102,7 @@ func (s *Service) Export(ctx context.Context) (Exchange, error) {
 	}
 	byID := indexGroupsByID(catalog)
 
-	included := map[string]fieldgroup.Group{}
+	included := map[string]fieldgroup.FieldGroup{}
 	exportedTypes := make([]ExchangeType, 0, len(types))
 	for _, docType := range types {
 		for _, id := range docType.FieldGroups {
@@ -256,8 +256,8 @@ func (s *Service) createAs(ctx context.Context, id string, in Input) (*Type, err
 type importView struct {
 	groups       []ExchangeGroup
 	types        []ExchangeType
-	groupsByID   map[string]fieldgroup.Group
-	groupsByName map[string]fieldgroup.Group
+	groupsByID   map[string]fieldgroup.FieldGroup
+	groupsByName map[string]fieldgroup.FieldGroup
 	typesByID    map[string]Type
 	typesByName  map[string]Type
 }
@@ -448,7 +448,7 @@ func validAction(conflict Conflict, action string) bool {
 	}
 }
 
-func normalizeExchangeGroups(raw []ExchangeGroup, local map[string]fieldgroup.Group) ([]ExchangeGroup, error) {
+func normalizeExchangeGroups(raw []ExchangeGroup, local map[string]fieldgroup.FieldGroup) ([]ExchangeGroup, error) {
 	groups := make([]ExchangeGroup, 0, len(raw))
 	seenID := map[string]struct{}{}
 	seenName := map[string]struct{}{}
@@ -482,7 +482,7 @@ func normalizeExchangeGroups(raw []ExchangeGroup, local map[string]fieldgroup.Gr
 	return groups, nil
 }
 
-func normalizeExchangeTypes(raw []ExchangeType, local map[string]fieldgroup.Group, incoming []ExchangeGroup) ([]ExchangeType, error) {
+func normalizeExchangeTypes(raw []ExchangeType, local map[string]fieldgroup.FieldGroup, incoming []ExchangeGroup) ([]ExchangeType, error) {
 	available := map[string]struct{}{}
 	for id := range local {
 		available[id] = struct{}{}
@@ -545,7 +545,7 @@ func normalizeExchangeTypes(raw []ExchangeType, local map[string]fieldgroup.Grou
 	return types, nil
 }
 
-func sameGroup(local fieldgroup.Group, incoming ExchangeGroup) bool {
+func sameGroup(local fieldgroup.FieldGroup, incoming ExchangeGroup) bool {
 	return len(groupChanges(local, incoming)) == 0
 }
 
@@ -556,7 +556,7 @@ func sameType(local Type, incoming ExchangeType) bool {
 	return strings.Join(local.FieldGroups, "\n") == strings.Join(incoming.FieldGroups, "\n")
 }
 
-func groupChanges(local fieldgroup.Group, incoming ExchangeGroup) []Change {
+func groupChanges(local fieldgroup.FieldGroup, incoming ExchangeGroup) []Change {
 	changes := make([]Change, 0)
 	addChange(&changes, "name", local.Name, incoming.Name)
 	addChange(&changes, "labelDe", local.Labels.De, incoming.Labels.De)
@@ -567,7 +567,7 @@ func groupChanges(local fieldgroup.Group, incoming ExchangeGroup) []Change {
 	return changes
 }
 
-func typeChanges(local Type, incoming ExchangeType, groups map[string]fieldgroup.Group, incomingGroups []ExchangeGroup) []Change {
+func typeChanges(local Type, incoming ExchangeType, groups map[string]fieldgroup.FieldGroup, incomingGroups []ExchangeGroup) []Change {
 	names := map[string]string{}
 	for id, group := range groups {
 		names[id] = group.Name
@@ -659,23 +659,23 @@ func indexTypesByName(types []Type) map[string]Type {
 	return out
 }
 
-func indexGroupsByID(groups []fieldgroup.Group) map[string]fieldgroup.Group {
-	out := make(map[string]fieldgroup.Group, len(groups))
+func indexGroupsByID(groups []fieldgroup.FieldGroup) map[string]fieldgroup.FieldGroup {
+	out := make(map[string]fieldgroup.FieldGroup, len(groups))
 	for _, group := range groups {
 		out[group.ID] = group
 	}
 	return out
 }
 
-func indexGroupsByName(groups []fieldgroup.Group) map[string]fieldgroup.Group {
-	out := make(map[string]fieldgroup.Group, len(groups))
+func indexGroupsByName(groups []fieldgroup.FieldGroup) map[string]fieldgroup.FieldGroup {
+	out := make(map[string]fieldgroup.FieldGroup, len(groups))
 	for _, group := range groups {
 		out[strings.ToLower(group.Name)] = group
 	}
 	return out
 }
 
-func toExchangeGroup(group fieldgroup.Group) ExchangeGroup {
+func toExchangeGroup(group fieldgroup.FieldGroup) ExchangeGroup {
 	fields := make([]ExchangeField, 0, len(group.Fields))
 	for _, field := range group.Fields {
 		fields = append(fields, ExchangeField{

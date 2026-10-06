@@ -35,9 +35,9 @@ type Field struct {
 	Mandatory bool `json:"mandatory"`
 }
 
-// Group is a reusable set of field definitions, stored in the instance database.
+// FieldGroup is a reusable set of field definitions, stored in the instance database.
 // Name is unique among groups, compared case-insensitively.
-type Group struct {
+type FieldGroup struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Labels      Text   `json:"labels"`

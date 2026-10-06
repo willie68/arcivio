@@ -123,25 +123,25 @@ func (m *memStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-type groupCatalog map[string]fieldgroup.Group
+type groupCatalog map[string]fieldgroup.FieldGroup
 
 func knownGroups(ids ...string) groupCatalog {
 	catalog := groupCatalog{}
 	for _, id := range ids {
-		catalog[id] = fieldgroup.Group{ID: id, Name: id}
+		catalog[id] = fieldgroup.FieldGroup{ID: id, Name: id}
 	}
 	return catalog
 }
 
-func (g groupCatalog) List(context.Context) ([]fieldgroup.Group, error) {
-	out := make([]fieldgroup.Group, 0, len(g))
+func (g groupCatalog) List(context.Context) ([]fieldgroup.FieldGroup, error) {
+	out := make([]fieldgroup.FieldGroup, 0, len(g))
 	for _, group := range g {
 		out = append(out, group)
 	}
 	return out, nil
 }
 
-func (g groupCatalog) Get(_ context.Context, id string) (*fieldgroup.Group, error) {
+func (g groupCatalog) Get(_ context.Context, id string) (*fieldgroup.FieldGroup, error) {
 	group, ok := g[id]
 	if !ok {
 		return nil, fieldgroup.ErrNotFound
@@ -149,14 +149,14 @@ func (g groupCatalog) Get(_ context.Context, id string) (*fieldgroup.Group, erro
 	return &group, nil
 }
 
-func (g groupCatalog) Create(context.Context, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (g groupCatalog) Create(context.Context, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, fieldgroup.ErrInvalid
 }
 
-func (g groupCatalog) CreateWithID(context.Context, string, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (g groupCatalog) CreateWithID(context.Context, string, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, fieldgroup.ErrInvalid
 }
 
-func (g groupCatalog) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (g groupCatalog) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, fieldgroup.ErrInvalid
 }

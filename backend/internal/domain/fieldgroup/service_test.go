@@ -130,7 +130,7 @@ func TestEnsureBuiltinImportsMissingGroups(t *testing.T) {
 
 func TestReadonlyGroupRejectsChange(t *testing.T) {
 	st := newMemStore()
-	require.NoError(t, st.Create(context.Background(), Group{ID: "system", Name: "system", Readonly: true}))
+	require.NoError(t, st.Create(context.Background(), FieldGroup{ID: "system", Name: "system", Readonly: true}))
 	svc := New(st)
 	_, err := svc.Update(context.Background(), "system", Input{Name: "other"})
 	assert.ErrorIs(t, err, ErrReadonly)
@@ -151,22 +151,22 @@ func TestDelete(t *testing.T) {
 }
 
 type memStore struct {
-	groups map[string]Group
+	groups map[string]FieldGroup
 }
 
 func newMemStore() *memStore {
-	return &memStore{groups: map[string]Group{}}
+	return &memStore{groups: map[string]FieldGroup{}}
 }
 
-func (m *memStore) List(context.Context) ([]Group, error) {
-	out := make([]Group, 0, len(m.groups))
+func (m *memStore) List(context.Context) ([]FieldGroup, error) {
+	out := make([]FieldGroup, 0, len(m.groups))
 	for _, group := range m.groups {
 		out = append(out, group)
 	}
 	return out, nil
 }
 
-func (m *memStore) GetByID(_ context.Context, id string) (*Group, error) {
+func (m *memStore) GetByID(_ context.Context, id string) (*FieldGroup, error) {
 	group, ok := m.groups[id]
 	if !ok {
 		return nil, ErrNotFound
@@ -174,7 +174,7 @@ func (m *memStore) GetByID(_ context.Context, id string) (*Group, error) {
 	return &group, nil
 }
 
-func (m *memStore) GetByName(_ context.Context, name string) (*Group, error) {
+func (m *memStore) GetByName(_ context.Context, name string) (*FieldGroup, error) {
 	for _, group := range m.groups {
 		if strings.EqualFold(group.Name, name) {
 			cp := group
@@ -184,7 +184,7 @@ func (m *memStore) GetByName(_ context.Context, name string) (*Group, error) {
 	return nil, ErrNotFound
 }
 
-func (m *memStore) Create(_ context.Context, group Group) error {
+func (m *memStore) Create(_ context.Context, group FieldGroup) error {
 	if _, err := m.GetByName(context.Background(), group.Name); err == nil {
 		return ErrAlreadyExists
 	}
@@ -192,7 +192,7 @@ func (m *memStore) Create(_ context.Context, group Group) error {
 	return nil
 }
 
-func (m *memStore) Update(_ context.Context, group Group) error {
+func (m *memStore) Update(_ context.Context, group FieldGroup) error {
 	if _, ok := m.groups[group.ID]; !ok {
 		return ErrNotFound
 	}

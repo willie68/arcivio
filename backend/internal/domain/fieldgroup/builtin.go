@@ -10,12 +10,12 @@ import (
 //go:embed fieldgroups.json
 var builtinCatalog []byte
 
-func builtinGroups() ([]Group, error) {
-	var catalog map[string]Group
+func builtinGroups() ([]FieldGroup, error) {
+	var catalog map[string]FieldGroup
 	if err := json.Unmarshal(builtinCatalog, &catalog); err != nil {
 		return nil, err
 	}
-	groups := make([]Group, 0, len(catalog))
+	groups := make([]FieldGroup, 0, len(catalog))
 	for _, group := range catalog {
 		group.Readonly = true
 		groups = append(groups, group)

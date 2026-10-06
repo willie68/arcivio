@@ -53,10 +53,10 @@ type groupBody struct {
 }
 
 type groupService interface {
-	List(ctx context.Context) ([]fieldgroup.Group, error)
-	Get(ctx context.Context, id string) (*fieldgroup.Group, error)
-	Create(ctx context.Context, in fieldgroup.Input) (*fieldgroup.Group, error)
-	Update(ctx context.Context, id string, in fieldgroup.Input) (*fieldgroup.Group, error)
+	List(ctx context.Context) ([]fieldgroup.FieldGroup, error)
+	Get(ctx context.Context, id string) (*fieldgroup.FieldGroup, error)
+	Create(ctx context.Context, in fieldgroup.Input) (*fieldgroup.FieldGroup, error)
+	Update(ctx context.Context, id string, in fieldgroup.Input) (*fieldgroup.FieldGroup, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -243,7 +243,7 @@ func toInput(body groupBody) fieldgroup.Input {
 	}
 }
 
-func toResponse(group fieldgroup.Group) GroupResponse {
+func toResponse(group fieldgroup.FieldGroup) GroupResponse {
 	fields := make([]FieldResponse, 0, len(group.Fields))
 	for _, field := range group.Fields {
 		fields = append(fields, FieldResponse{

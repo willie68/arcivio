@@ -19,7 +19,7 @@ func TestFieldGroupRepoCRUD(t *testing.T) {
 	repo, err := New(st.DB())
 	require.NoError(t, err)
 
-	group := fieldgroup.Group{
+	group := fieldgroup.FieldGroup{
 		ID:          "fg1",
 		Name:        "beleg",
 		Labels:      fieldgroup.Text{De: "Beleg", En: "Voucher"},
@@ -66,7 +66,7 @@ func TestFieldGroupRepoNameIsUniqueIgnoringCase(t *testing.T) {
 
 	repo, err := New(st.DB())
 	require.NoError(t, err)
-	require.NoError(t, repo.Create(context.Background(), fieldgroup.Group{ID: "a", Name: "beleg"}))
-	err = repo.Create(context.Background(), fieldgroup.Group{ID: "b", Name: "Beleg"})
+	require.NoError(t, repo.Create(context.Background(), fieldgroup.FieldGroup{ID: "a", Name: "beleg"}))
+	err = repo.Create(context.Background(), fieldgroup.FieldGroup{ID: "b", Name: "Beleg"})
 	assert.ErrorIs(t, err, fieldgroup.ErrAlreadyExists)
 }

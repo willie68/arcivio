@@ -165,8 +165,8 @@ func TestImportMatchesIDAndAsksOnConflict(t *testing.T) {
 
 func exchangeService(t *testing.T) (*Service, *fieldgroup.Service) {
 	t.Helper()
-	store := &groupStore{groups: map[string]fieldgroup.Group{}}
-	require.NoError(t, store.Create(context.Background(), fieldgroup.Group{
+	store := &groupStore{groups: map[string]fieldgroup.FieldGroup{}}
+	require.NoError(t, store.Create(context.Background(), fieldgroup.FieldGroup{
 		ID:       fieldgroup.SystemGroupID,
 		Name:     "system",
 		Readonly: true,
@@ -176,32 +176,32 @@ func exchangeService(t *testing.T) (*Service, *fieldgroup.Service) {
 	return New(newMemStore(), groups), groups
 }
 
-func groupByName(groups *fieldgroup.Service, name string) (fieldgroup.Group, error) {
+func groupByName(groups *fieldgroup.Service, name string) (fieldgroup.FieldGroup, error) {
 	listed, err := groups.List(context.Background())
 	if err != nil {
-		return fieldgroup.Group{}, err
+		return fieldgroup.FieldGroup{}, err
 	}
 	for _, group := range listed {
 		if strings.EqualFold(group.Name, name) {
 			return group, nil
 		}
 	}
-	return fieldgroup.Group{}, fieldgroup.ErrNotFound
+	return fieldgroup.FieldGroup{}, fieldgroup.ErrNotFound
 }
 
 type groupStore struct {
-	groups map[string]fieldgroup.Group
+	groups map[string]fieldgroup.FieldGroup
 }
 
-func (s *groupStore) List(context.Context) ([]fieldgroup.Group, error) {
-	out := make([]fieldgroup.Group, 0, len(s.groups))
+func (s *groupStore) List(context.Context) ([]fieldgroup.FieldGroup, error) {
+	out := make([]fieldgroup.FieldGroup, 0, len(s.groups))
 	for _, group := range s.groups {
 		out = append(out, group)
 	}
 	return out, nil
 }
 
-func (s *groupStore) GetByID(_ context.Context, id string) (*fieldgroup.Group, error) {
+func (s *groupStore) GetByID(_ context.Context, id string) (*fieldgroup.FieldGroup, error) {
 	group, ok := s.groups[id]
 	if !ok {
 		return nil, fieldgroup.ErrNotFound
@@ -210,7 +210,7 @@ func (s *groupStore) GetByID(_ context.Context, id string) (*fieldgroup.Group, e
 	return &cp, nil
 }
 
-func (s *groupStore) GetByName(_ context.Context, name string) (*fieldgroup.Group, error) {
+func (s *groupStore) GetByName(_ context.Context, name string) (*fieldgroup.FieldGroup, error) {
 	for _, group := range s.groups {
 		if strings.EqualFold(group.Name, name) {
 			cp := group
@@ -220,7 +220,7 @@ func (s *groupStore) GetByName(_ context.Context, name string) (*fieldgroup.Grou
 	return nil, fieldgroup.ErrNotFound
 }
 
-func (s *groupStore) Create(_ context.Context, group fieldgroup.Group) error {
+func (s *groupStore) Create(_ context.Context, group fieldgroup.FieldGroup) error {
 	if _, err := s.GetByName(context.Background(), group.Name); err == nil {
 		return fieldgroup.ErrAlreadyExists
 	}
@@ -228,7 +228,7 @@ func (s *groupStore) Create(_ context.Context, group fieldgroup.Group) error {
 	return nil
 }
 
-func (s *groupStore) Update(_ context.Context, group fieldgroup.Group) error {
+func (s *groupStore) Update(_ context.Context, group fieldgroup.FieldGroup) error {
 	if _, ok := s.groups[group.ID]; !ok {
 		return fieldgroup.ErrNotFound
 	}

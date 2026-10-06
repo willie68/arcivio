@@ -14,11 +14,11 @@ const maxNameLen = 64
 
 // Groups looks up and stores the field groups a document type may reference.
 type Groups interface {
-	List(ctx context.Context) ([]fieldgroup.Group, error)
-	Get(ctx context.Context, id string) (*fieldgroup.Group, error)
-	Create(ctx context.Context, in fieldgroup.Input) (*fieldgroup.Group, error)
-	CreateWithID(ctx context.Context, id string, in fieldgroup.Input) (*fieldgroup.Group, error)
-	Update(ctx context.Context, id string, in fieldgroup.Input) (*fieldgroup.Group, error)
+	List(ctx context.Context) ([]fieldgroup.FieldGroup, error)
+	Get(ctx context.Context, id string) (*fieldgroup.FieldGroup, error)
+	Create(ctx context.Context, in fieldgroup.Input) (*fieldgroup.FieldGroup, error)
+	CreateWithID(ctx context.Context, id string, in fieldgroup.Input) (*fieldgroup.FieldGroup, error)
+	Update(ctx context.Context, id string, in fieldgroup.Input) (*fieldgroup.FieldGroup, error)
 }
 
 // Service is the document-type use case.

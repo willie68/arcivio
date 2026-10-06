@@ -79,13 +79,13 @@ CREATE TABLE IF NOT EXISTS field_groups (
 }
 
 // List implements fieldgroup.Store.
-func (r *Repo) List(ctx context.Context) ([]fieldgroup.Group, error) {
+func (r *Repo) List(ctx context.Context) ([]fieldgroup.FieldGroup, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, name, definition FROM field_groups ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	groups := make([]fieldgroup.Group, 0)
+	groups := make([]fieldgroup.FieldGroup, 0)
 	for rows.Next() {
 		group, err := scanGroup(rows)
 		if err != nil {
@@ -97,7 +97,7 @@ func (r *Repo) List(ctx context.Context) ([]fieldgroup.Group, error) {
 }
 
 // GetByID implements fieldgroup.Store.
-func (r *Repo) GetByID(ctx context.Context, id string) (*fieldgroup.Group, error) {
+func (r *Repo) GetByID(ctx context.Context, id string) (*fieldgroup.FieldGroup, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT id, name, definition FROM field_groups WHERE id = ?`, id)
 	group, err := scanGroup(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -110,7 +110,7 @@ func (r *Repo) GetByID(ctx context.Context, id string) (*fieldgroup.Group, error
 }
 
 // GetByName implements fieldgroup.Store. The match is case-insensitive.
-func (r *Repo) GetByName(ctx context.Context, name string) (*fieldgroup.Group, error) {
+func (r *Repo) GetByName(ctx context.Context, name string) (*fieldgroup.FieldGroup, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT id, name, definition FROM field_groups WHERE name = ? COLLATE NOCASE`, name)
 	group, err := scanGroup(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -123,7 +123,7 @@ func (r *Repo) GetByName(ctx context.Context, name string) (*fieldgroup.Group, e
 }
 
 // Create implements fieldgroup.Store.
-func (r *Repo) Create(ctx context.Context, group fieldgroup.Group) error {
+func (r *Repo) Create(ctx context.Context, group fieldgroup.FieldGroup) error {
 	raw, err := marshalDefinition(group)
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ VALUES (?, ?, ?, ?, ?)`, group.ID, group.Name, raw, now, now)
 }
 
 // Update implements fieldgroup.Store.
-func (r *Repo) Update(ctx context.Context, group fieldgroup.Group) error {
+func (r *Repo) Update(ctx context.Context, group fieldgroup.FieldGroup) error {
 	raw, err := marshalDefinition(group)
 	if err != nil {
 		return err
@@ -181,15 +181,15 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-func scanGroup(row scanner) (fieldgroup.Group, error) {
-	var group fieldgroup.Group
+func scanGroup(row scanner) (fieldgroup.FieldGroup, error) {
+	var group fieldgroup.FieldGroup
 	var raw string
 	if err := row.Scan(&group.ID, &group.Name, &raw); err != nil {
-		return fieldgroup.Group{}, err
+		return fieldgroup.FieldGroup{}, err
 	}
 	var def definition
 	if err := json.Unmarshal([]byte(raw), &def); err != nil {
-		return fieldgroup.Group{}, fmt.Errorf("decode field group %s: %w", group.ID, err)
+		return fieldgroup.FieldGroup{}, fmt.Errorf("decode field group %s: %w", group.ID, err)
 	}
 	group.Labels = toText(def.Labels)
 	group.Description = toText(def.Description)
@@ -207,7 +207,7 @@ func scanGroup(row scanner) (fieldgroup.Group, error) {
 	return group, nil
 }
 
-func marshalDefinition(group fieldgroup.Group) (string, error) {
+func marshalDefinition(group fieldgroup.FieldGroup) (string, error) {
 	fields := make([]fieldJSON, 0, len(group.Fields))
 	for _, field := range group.Fields {
 		fields = append(fields, fieldJSON{

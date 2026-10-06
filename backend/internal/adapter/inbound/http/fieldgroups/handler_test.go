@@ -29,7 +29,7 @@ func TestListRequiresAdmin(t *testing.T) {
 }
 
 func TestCreateListAndDelete(t *testing.T) {
-	svc := fieldgroup.New(&memGroups{groups: map[string]fieldgroup.Group{}})
+	svc := fieldgroup.New(&memGroups{groups: map[string]fieldgroup.FieldGroup{}})
 	h := &Handler{groups: svc, roles: stubRoles{}}
 
 	body := []byte(`{
@@ -96,31 +96,31 @@ func (stubRoles) HasRole(checkRole string, desiredRole string) bool {
 
 type stubGroups struct{}
 
-func (stubGroups) List(context.Context) ([]fieldgroup.Group, error) { return nil, nil }
-func (stubGroups) Get(context.Context, string) (*fieldgroup.Group, error) {
+func (stubGroups) List(context.Context) ([]fieldgroup.FieldGroup, error) { return nil, nil }
+func (stubGroups) Get(context.Context, string) (*fieldgroup.FieldGroup, error) {
 	return nil, fieldgroup.ErrNotFound
 }
-func (stubGroups) Create(context.Context, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (stubGroups) Create(context.Context, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, fieldgroup.ErrInvalid
 }
-func (stubGroups) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (stubGroups) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, fieldgroup.ErrNotFound
 }
 func (stubGroups) Delete(context.Context, string) error { return fieldgroup.ErrNotFound }
 
 type memGroups struct {
-	groups map[string]fieldgroup.Group
+	groups map[string]fieldgroup.FieldGroup
 }
 
-func (m *memGroups) List(context.Context) ([]fieldgroup.Group, error) {
-	out := make([]fieldgroup.Group, 0, len(m.groups))
+func (m *memGroups) List(context.Context) ([]fieldgroup.FieldGroup, error) {
+	out := make([]fieldgroup.FieldGroup, 0, len(m.groups))
 	for _, group := range m.groups {
 		out = append(out, group)
 	}
 	return out, nil
 }
 
-func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.Group, error) {
+func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.FieldGroup, error) {
 	group, ok := m.groups[id]
 	if !ok {
 		return nil, fieldgroup.ErrNotFound
@@ -128,7 +128,7 @@ func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.Group, er
 	return &group, nil
 }
 
-func (m *memGroups) GetByName(_ context.Context, name string) (*fieldgroup.Group, error) {
+func (m *memGroups) GetByName(_ context.Context, name string) (*fieldgroup.FieldGroup, error) {
 	for _, group := range m.groups {
 		if group.Name == name {
 			cp := group
@@ -138,12 +138,12 @@ func (m *memGroups) GetByName(_ context.Context, name string) (*fieldgroup.Group
 	return nil, fieldgroup.ErrNotFound
 }
 
-func (m *memGroups) Create(_ context.Context, group fieldgroup.Group) error {
+func (m *memGroups) Create(_ context.Context, group fieldgroup.FieldGroup) error {
 	m.groups[group.ID] = group
 	return nil
 }
 
-func (m *memGroups) Update(_ context.Context, group fieldgroup.Group) error {
+func (m *memGroups) Update(_ context.Context, group fieldgroup.FieldGroup) error {
 	m.groups[group.ID] = group
 	return nil
 }
