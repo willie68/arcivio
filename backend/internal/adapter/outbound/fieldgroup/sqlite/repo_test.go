@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	storesqlite "github.com/willie68/arcivio/internal/adapter/outbound/store/sqlite"
 	"github.com/willie68/arcivio/internal/domain/fieldgroup"
+	"github.com/willie68/arcivio/internal/domain/models"
 )
 
 func TestFieldGroupRepoCRUD(t *testing.T) {
@@ -22,14 +23,14 @@ func TestFieldGroupRepoCRUD(t *testing.T) {
 	group := fieldgroup.FieldGroup{
 		ID:          "fg1",
 		Name:        "beleg",
-		Labels:      fieldgroup.Text{De: "Beleg", En: "Voucher"},
-		Description: fieldgroup.Text{De: "Kopf", En: "Header"},
+		Labels:      models.LabelText{De: "Beleg", En: "Voucher"},
+		Description: models.LabelText{De: "Kopf", En: "Header"},
 		Readonly:    true,
 		Fields: []fieldgroup.Field{{
 			Name:        "amount",
-			Labels:      fieldgroup.Text{De: "Betrag", En: "Amount"},
-			Description: fieldgroup.Text{De: "Brutto", En: "Gross"},
-			ValueType:   fieldgroup.ValueDecimal,
+			Labels:      models.LabelText{De: "Betrag", En: "Amount"},
+			Description: models.LabelText{De: "Brutto", En: "Gross"},
+			ValueType:   models.ValueTypeDecimal,
 			Mandatory:   true,
 		}},
 	}
@@ -40,13 +41,13 @@ func TestFieldGroupRepoCRUD(t *testing.T) {
 	assert.Equal(t, "fg1", byName.ID)
 	assert.Equal(t, "Beleg", byName.Labels.De)
 	require.Len(t, byName.Fields, 1)
-	assert.Equal(t, fieldgroup.ValueDecimal, byName.Fields[0].ValueType)
+	assert.Equal(t, models.ValueTypeDecimal, byName.Fields[0].ValueType)
 	assert.True(t, byName.Fields[0].Mandatory)
 	assert.True(t, byName.Readonly)
 	assert.Equal(t, "Brutto", byName.Fields[0].Description.De)
 
 	group.Name = "parties"
-	group.Fields = []fieldgroup.Field{{Name: "at", ValueType: fieldgroup.ValueDateTime}}
+	group.Fields = []fieldgroup.Field{{Name: "at", ValueType: models.ValueTypeDateTime}}
 	require.NoError(t, repo.Update(context.Background(), group))
 
 	listed, err := repo.List(context.Background())

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/willie68/arcivio/internal/domain/models"
 )
 
 func TestCreateRejectsDuplicateFieldNames(t *testing.T) {
@@ -14,8 +15,8 @@ func TestCreateRejectsDuplicateFieldNames(t *testing.T) {
 	_, err := svc.Create(context.Background(), Input{
 		Name: "beleg",
 		Fields: []Field{
-			{Name: "Amount", ValueType: ValueDecimal},
-			{Name: "amount", ValueType: ValueText},
+			{Name: "Amount", ValueType: models.ValueTypeDecimal},
+			{Name: "amount", ValueType: models.ValueTypeText},
 		},
 	})
 	assert.ErrorIs(t, err, ErrInvalid)
@@ -26,12 +27,12 @@ func TestCreateAndRename(t *testing.T) {
 	svc.ids = func() string { return "fg1" }
 	created, err := svc.Create(context.Background(), Input{
 		Name:   " beleg ",
-		Labels: Text{De: " Beleg ", En: "Voucher"},
+		Labels: models.LabelText{De: " Beleg ", En: "Voucher"},
 		Fields: []Field{{
 			Name:        "number",
-			Labels:      Text{De: "Nummer", En: "Number"},
-			Description: Text{De: "Belegnummer", En: "Voucher number"},
-			ValueType:   ValueText,
+			Labels:      models.LabelText{De: "Nummer", En: "Number"},
+			Description: models.LabelText{De: "Belegnummer", En: "Voucher number"},
+			ValueType:   models.ValueTypeText,
 			Mandatory:   true,
 		}},
 	})
@@ -39,7 +40,7 @@ func TestCreateAndRename(t *testing.T) {
 	assert.Equal(t, "fg1", created.ID)
 	assert.Equal(t, "beleg", created.Name)
 	assert.Equal(t, "Beleg", created.Labels.De)
-	assert.Equal(t, ValueText, created.Fields[0].ValueType)
+	assert.Equal(t, models.ValueTypeText, created.Fields[0].ValueType)
 	assert.True(t, created.Fields[0].Mandatory)
 
 	_, err = svc.Create(context.Background(), Input{Name: "BELEG"})
@@ -47,12 +48,12 @@ func TestCreateAndRename(t *testing.T) {
 
 	updated, err := svc.Update(context.Background(), created.ID, Input{
 		Name:   "parties",
-		Fields: []Field{{Name: "when", ValueType: ValueDateTime}},
+		Fields: []Field{{Name: "when", ValueType: models.ValueTypeDateTime}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "parties", updated.Name)
 	require.Len(t, updated.Fields, 1)
-	assert.Equal(t, ValueDateTime, updated.Fields[0].ValueType)
+	assert.Equal(t, models.ValueTypeDateTime, updated.Fields[0].ValueType)
 }
 
 func TestUpdateKeepsOwnName(t *testing.T) {
@@ -62,10 +63,10 @@ func TestUpdateKeepsOwnName(t *testing.T) {
 	updated, err := svc.Update(context.Background(), created.ID, Input{
 		Name: "beleg",
 		Fields: []Field{
-			{Name: "flag", ValueType: ValueBool},
-			{Name: "count", ValueType: ValueInt},
-			{Name: "rate", ValueType: ValueDouble},
-			{Name: "note", ValueType: ValueMultiline},
+			{Name: "flag", ValueType: models.ValueTypeBool},
+			{Name: "count", ValueType: models.ValueTypeInt},
+			{Name: "rate", ValueType: models.ValueTypeDouble},
+			{Name: "note", ValueType: models.ValueTypeMultiline},
 		},
 	})
 	require.NoError(t, err)
@@ -78,21 +79,21 @@ func TestCreateAcceptsIntrefAndFile(t *testing.T) {
 	created, err := svc.Create(context.Background(), Input{
 		Name: "refs",
 		Fields: []Field{
-			{Name: "owner", ValueType: ValueIntRef},
-			{Name: "attachment", ValueType: ValueFile},
+			{Name: "owner", ValueType: models.ValueTypeIntRef},
+			{Name: "attachment", ValueType: models.ValueTypeFile},
 		},
 	})
 	require.NoError(t, err)
 	require.Len(t, created.Fields, 2)
-	assert.Equal(t, ValueIntRef, created.Fields[0].ValueType)
-	assert.Equal(t, ValueFile, created.Fields[1].ValueType)
+	assert.Equal(t, models.ValueTypeIntRef, created.Fields[0].ValueType)
+	assert.Equal(t, models.ValueTypeFile, created.Fields[1].ValueType)
 }
 
 func TestRejectsUnknownValueTypeAndBadName(t *testing.T) {
 	svc := New(newMemStore())
 	_, err := svc.Create(context.Background(), Input{
 		Name:   "beleg",
-		Fields: []Field{{Name: "amount", ValueType: "money"}},
+		Fields: []Field{{Name: "amount", ValueType: models.ValueTypeText}},
 	})
 	assert.ErrorIs(t, err, ErrInvalid)
 
@@ -118,7 +119,7 @@ func TestEnsureBuiltinImportsMissingGroups(t *testing.T) {
 			creator = field
 		}
 	}
-	assert.Equal(t, "intref:user", creator.ValueType)
+	assert.Equal(t, models.TypeIntRef("user"), creator.ValueType)
 
 	before, err := st.List(context.Background())
 	require.NoError(t, err)

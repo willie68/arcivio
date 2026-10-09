@@ -10,34 +10,29 @@ import (
 	"github.com/samber/do/v2"
 	"github.com/willie68/arcivio/internal/adapter/inbound/http/auth"
 	"github.com/willie68/arcivio/internal/domain/fieldgroup"
+	"github.com/willie68/arcivio/internal/domain/models"
 	"github.com/willie68/arcivio/internal/domain/roles"
 	"github.com/willie68/arcivio/internal/shared/serror"
 	"github.com/willie68/arcivio/internal/shared/utils/httputils"
 )
 
-// TextResponse is a short UI string in German and English.
-type TextResponse struct {
-	De string `json:"de"`
-	En string `json:"en"`
-}
-
 // FieldResponse is one field definition.
 type FieldResponse struct {
-	Name        string       `json:"name"`
-	Labels      TextResponse `json:"labels"`
-	Description TextResponse `json:"description"`
-	ValueType   string       `json:"valueType"`
-	Mandatory   bool         `json:"mandatory"`
+	Name        string           `json:"name"`
+	Labels      models.LabelText `json:"labels"`
+	Description models.LabelText `json:"description"`
+	ValueType   string           `json:"valueType"`
+	Mandatory   bool             `json:"mandatory"`
 }
 
 // GroupResponse is one field group definition.
 type GroupResponse struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Labels      TextResponse    `json:"labels"`
-	Description TextResponse    `json:"description"`
-	Readonly    bool            `json:"readonly"`
-	Fields      []FieldResponse `json:"fields"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Labels      models.LabelText `json:"labels"`
+	Description models.LabelText `json:"description"`
+	Readonly    bool             `json:"readonly"`
+	Fields      []FieldResponse  `json:"fields"`
 }
 
 // GroupListResponse is the field-group catalog.
@@ -46,10 +41,10 @@ type GroupListResponse struct {
 }
 
 type groupBody struct {
-	Name        string          `json:"name"`
-	Labels      TextResponse    `json:"labels"`
-	Description TextResponse    `json:"description"`
-	Fields      []FieldResponse `json:"fields"`
+	Name        string           `json:"name"`
+	Labels      models.LabelText `json:"labels"`
+	Description models.LabelText `json:"description"`
+	Fields      []FieldResponse  `json:"fields"`
 }
 
 type groupService interface {
@@ -229,16 +224,16 @@ func toInput(body groupBody) fieldgroup.Input {
 	for _, field := range body.Fields {
 		fields = append(fields, fieldgroup.Field{
 			Name:        field.Name,
-			Labels:      fieldgroup.Text{De: field.Labels.De, En: field.Labels.En},
-			Description: fieldgroup.Text{De: field.Description.De, En: field.Description.En},
+			Labels:      models.LabelText{De: field.Labels.De, En: field.Labels.En},
+			Description: models.LabelText{De: field.Description.De, En: field.Description.En},
 			ValueType:   field.ValueType,
 			Mandatory:   field.Mandatory,
 		})
 	}
 	return fieldgroup.Input{
 		Name:        body.Name,
-		Labels:      fieldgroup.Text{De: body.Labels.De, En: body.Labels.En},
-		Description: fieldgroup.Text{De: body.Description.De, En: body.Description.En},
+		Labels:      models.LabelText{De: body.Labels.De, En: body.Labels.En},
+		Description: models.LabelText{De: body.Description.De, En: body.Description.En},
 		Fields:      fields,
 	}
 }
@@ -248,8 +243,8 @@ func toResponse(group fieldgroup.FieldGroup) GroupResponse {
 	for _, field := range group.Fields {
 		fields = append(fields, FieldResponse{
 			Name:        field.Name,
-			Labels:      TextResponse{De: field.Labels.De, En: field.Labels.En},
-			Description: TextResponse{De: field.Description.De, En: field.Description.En},
+			Labels:      models.LabelText{De: field.Labels.De, En: field.Labels.En},
+			Description: models.LabelText{De: field.Description.De, En: field.Description.En},
 			ValueType:   field.ValueType,
 			Mandatory:   field.Mandatory,
 		})
@@ -257,8 +252,8 @@ func toResponse(group fieldgroup.FieldGroup) GroupResponse {
 	return GroupResponse{
 		ID:          group.ID,
 		Name:        group.Name,
-		Labels:      TextResponse{De: group.Labels.De, En: group.Labels.En},
-		Description: TextResponse{De: group.Description.De, En: group.Description.En},
+		Labels:      models.LabelText{De: group.Labels.De, En: group.Labels.En},
+		Description: models.LabelText{De: group.Description.De, En: group.Description.En},
 		Readonly:    group.Readonly,
 		Fields:      fields,
 	}

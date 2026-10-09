@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/willie68/arcivio/internal/domain/fieldgroup"
+	"github.com/willie68/arcivio/internal/domain/models"
 )
 
 const (
@@ -700,16 +701,16 @@ func toFieldGroupInput(group ExchangeGroup) fieldgroup.Input {
 	for _, field := range group.Fields {
 		fields = append(fields, fieldgroup.Field{
 			Name:        field.Name,
-			Labels:      fieldgroup.Text{De: field.Labels.De, En: field.Labels.En},
-			Description: fieldgroup.Text{De: field.Description.De, En: field.Description.En},
+			Labels:      models.LabelText{De: field.Labels.De, En: field.Labels.En},
+			Description: models.LabelText{De: field.Description.De, En: field.Description.En},
 			ValueType:   field.ValueType,
 			Mandatory:   field.Mandatory,
 		})
 	}
 	return fieldgroup.Input{
 		Name:        group.Name,
-		Labels:      fieldgroup.Text{De: group.Labels.De, En: group.Labels.En},
-		Description: fieldgroup.Text{De: group.Description.De, En: group.Description.En},
+		Labels:      models.LabelText{De: group.Labels.De, En: group.Labels.En},
+		Description: models.LabelText{De: group.Description.De, En: group.Description.En},
 		Fields:      fields,
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/willie68/arcivio/internal/domain/fieldgroup"
+	"github.com/willie68/arcivio/internal/domain/models"
 )
 
 const migration = "005_field_groups"
@@ -230,11 +231,11 @@ func marshalDefinition(group fieldgroup.FieldGroup) (string, error) {
 	return string(raw), nil
 }
 
-func toText(text textJSON) fieldgroup.Text {
-	return fieldgroup.Text{De: text.De, En: text.En}
+func toText(text textJSON) models.LabelText {
+	return models.LabelText{De: text.De, En: text.En}
 }
 
-func fromText(text fieldgroup.Text) textJSON {
+func fromText(text models.LabelText) textJSON {
 	return textJSON{De: text.De, En: text.En}
 }
 

@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rs/xid"
+	"github.com/willie68/arcivio/internal/domain/models"
 )
 
 const maxNameLen = 64
@@ -181,8 +182,8 @@ func normalize(in Input) (FieldGroup, error) {
 	}
 	return FieldGroup{
 		Name:        name,
-		Labels:      trimText(in.Labels),
-		Description: trimText(in.Description),
+		Labels:      models.TrimLabelText(in.Labels),
+		Description: models.TrimLabelText(in.Description),
 		Fields:      fields,
 	}, nil
 }
@@ -197,8 +198,8 @@ func normalizeField(field Field) (Field, error) {
 	}
 	return Field{
 		Name:        name,
-		Labels:      trimText(field.Labels),
-		Description: trimText(field.Description),
+		Labels:      models.TrimLabelText(field.Labels),
+		Description: models.TrimLabelText(field.Description),
 		ValueType:   field.ValueType,
 		Mandatory:   field.Mandatory,
 	}, nil
@@ -227,8 +228,4 @@ func normalizeLabeledName(raw string, catalog bool) (string, error) {
 		}
 	}
 	return name, nil
-}
-
-func trimText(text Text) Text {
-	return Text{De: strings.TrimSpace(text.De), En: strings.TrimSpace(text.En)}
 }

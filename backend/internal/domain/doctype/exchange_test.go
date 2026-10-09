@@ -8,14 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willie68/arcivio/internal/domain/fieldgroup"
+	"github.com/willie68/arcivio/internal/domain/models"
 )
 
 func TestExportOmitsReadonlyGroups(t *testing.T) {
 	svc, groups := exchangeService(t)
 	_, err := groups.Create(context.Background(), fieldgroup.Input{
 		Name:   "parties",
-		Labels: fieldgroup.Text{De: "Parteien"},
-		Fields: []fieldgroup.Field{{Name: "title", ValueType: fieldgroup.ValueText, Mandatory: true}},
+		Labels: models.LabelText{De: "Parteien"},
+		Fields: []fieldgroup.Field{{Name: "title", ValueType: models.ValueTypeText, Mandatory: true}},
 	})
 	require.NoError(t, err)
 	party, err := groupByName(groups, "parties")
@@ -54,7 +55,7 @@ func TestImportMatchesIDAndAsksOnConflict(t *testing.T) {
 		Name: "parties",
 		Fields: []fieldgroup.Field{{
 			Name:      "title",
-			ValueType: fieldgroup.ValueText,
+			ValueType: models.ValueTypeText,
 		}},
 	})
 	require.NoError(t, err)
@@ -77,7 +78,7 @@ func TestImportMatchesIDAndAsksOnConflict(t *testing.T) {
 			Name: "parties",
 			Fields: []ExchangeField{{
 				Name:      "title",
-				ValueType: fieldgroup.ValueText,
+				ValueType: models.ValueTypeText,
 			}},
 		}},
 	}
@@ -98,7 +99,7 @@ func TestImportMatchesIDAndAsksOnConflict(t *testing.T) {
 		Name: "system",
 		Fields: []ExchangeField{{
 			Name:      "smuggled",
-			ValueType: fieldgroup.ValueText,
+			ValueType: models.ValueTypeText,
 		}},
 	})
 	conflicts, err = svc.Preview(context.Background(), changed)
@@ -138,7 +139,7 @@ func TestImportMatchesIDAndAsksOnConflict(t *testing.T) {
 			Name: "parties",
 			Fields: []ExchangeField{{
 				Name:      "note",
-				ValueType: fieldgroup.ValueMultiline,
+				ValueType: models.ValueTypeMultiline,
 			}},
 		}},
 	}
