@@ -10,6 +10,7 @@ require (
 	github.com/go-chi/cors v1.2.2
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.30.1
+	github.com/gowebpki/jcs v1.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/xid v1.6.0

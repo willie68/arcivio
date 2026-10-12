@@ -93,7 +93,7 @@ func TestRejectsUnknownValueTypeAndBadName(t *testing.T) {
 	svc := New(newMemStore())
 	_, err := svc.Create(context.Background(), Input{
 		Name:   "beleg",
-		Fields: []Field{{Name: "amount", ValueType: models.ValueTypeText}},
+		Fields: []Field{{Name: "amount", ValueType: "nonesuch"}},
 	})
 	assert.ErrorIs(t, err, ErrInvalid)
 
