@@ -36,7 +36,7 @@ type PublicKeyLookup func(keyID string) (publicKeyPEM string, err error)
 type DocumentSignature struct {
 	Algorithm string `json:"alg"`
 	KeyID     string `json:"keyId"`
-	Value     string `json:"value"`
+	Signature string `json:"signature"`
 }
 
 // SignedDocument is a Document plus a detached signature over its canonical JSON.
@@ -77,7 +77,7 @@ func SignDocument(doc *Document, keyID, privateKeyPEM string) (*SignedDocument, 
 		Signature: DocumentSignature{
 			Algorithm: SigAlgRS256,
 			KeyID:     keyID,
-			Value:     base64.RawURLEncoding.EncodeToString(sig),
+			Signature: base64.RawURLEncoding.EncodeToString(sig),
 		},
 	}, nil
 }
@@ -92,7 +92,7 @@ func (d *SignedDocument) GetKeyID() string {
 
 // Check verifies the signature with a PEM-encoded RSA public key, certificate, or private key.
 func (d *SignedDocument) Check(keyPEM string) error {
-	if d == nil || d.Signature.Value == "" {
+	if d == nil || d.Signature.Signature == "" {
 		return ErrMissingSignature
 	}
 	if d.Signature.Algorithm != "" && d.Signature.Algorithm != SigAlgRS256 {
@@ -106,7 +106,7 @@ func (d *SignedDocument) Check(keyPEM string) error {
 	if err != nil {
 		return err
 	}
-	sig, err := base64.RawURLEncoding.DecodeString(d.Signature.Value)
+	sig, err := base64.RawURLEncoding.DecodeString(d.Signature.Signature)
 	if err != nil {
 		return ErrInvalidSignature
 	}

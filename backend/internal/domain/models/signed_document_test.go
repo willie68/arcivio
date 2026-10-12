@@ -46,7 +46,7 @@ func TestSignDocumentAndCheck(t *testing.T) {
 	assert.Equal(t, FormatVersion, signed.FormatVersion)
 	assert.Equal(t, "store-1", signed.GetKeyID())
 	assert.Equal(t, SigAlgRS256, signed.Signature.Algorithm)
-	assert.NotEmpty(t, signed.Signature.Value)
+	assert.NotEmpty(t, signed.Signature.Signature)
 	assert.NoError(t, signed.Check(pub))
 	assert.NoError(t, signed.Check(priv))
 }
