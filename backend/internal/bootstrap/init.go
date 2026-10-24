@@ -2,11 +2,12 @@ package bootstrap
 
 import (
 	"github.com/samber/do/v2"
-	dtsqlite "github.com/willie68/arcivio/internal/adapter/outbound/documenttype/sqlite"
+	dtsqlite "github.com/willie68/arcivio/internal/adapter/outbound/doctype/sqlite"
 	fgsqlite "github.com/willie68/arcivio/internal/adapter/outbound/fieldgroup/sqlite"
 	idsqlite "github.com/willie68/arcivio/internal/adapter/outbound/identity/sqlite"
 	"github.com/willie68/arcivio/internal/adapter/outbound/store"
 	"github.com/willie68/arcivio/internal/config"
+	"github.com/willie68/arcivio/internal/domain/doctype"
 	"github.com/willie68/arcivio/internal/domain/document"
 	"github.com/willie68/arcivio/internal/domain/documenttype"
 	"github.com/willie68/arcivio/internal/domain/fieldgroup"
@@ -55,6 +56,12 @@ func InitServices(inj do.Injector, cfg config.Config) error {
 		return err
 	}
 	if err := fieldgroup.Provide(inj); err != nil {
+		return err
+	}
+	if err := dtsqlite.Provide(inj); err != nil {
+		return err
+	}
+	if err := doctype.Provide(inj); err != nil {
 		return err
 	}
 	if err := idp.Provide(inj); err != nil {

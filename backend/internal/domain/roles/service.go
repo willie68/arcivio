@@ -14,10 +14,14 @@ func NewService() *Service {
 	return &Service{roles: roles}
 }
 
-// GetRoles returns the built-in roles in catalog order.
-func (s *Service) GetRoles() []RoleDefinition {
-	out := make([]RoleDefinition, len(builtinRoles))
-	copy(out, builtinRoles)
+func (s *service) GetRoles() []RoleDefinition {
+	out := make([]RoleDefinition, len(s.roles))
+	i := 0
+	for _, role := range s.roles {
+		out[i] = role
+		i++
+	}
+}
 	return out
 }
 

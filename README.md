@@ -20,7 +20,7 @@ OCR, Volltext-Extraktion und Embeddings kommen über **externe** Dienste, nicht 
 
 Der technische Entwurf steht in [PLAN.md](PLAN.md). Das ist ein Architekturplan, keine fertige Spezifikation und **keine Rechtsberatung**. GoBD-Tauglichkeit ist ein Designziel, keine Zertifizierung.
 
-## Aktueller Stand (Phase 3, Benutzer- und Rollen-Maske)
+## Aktueller Stand (Phase 3, Feldgruppen und Dokumenttypen)
 
 Vorhanden:
 
@@ -32,8 +32,10 @@ Vorhanden:
 - `GET /api/v1/me` und `POST /api/v1/me/password` mit Bearer-Token
 - Benutzerverwaltung nur für Rolle `admin`: `GET /api/v1/users` (Seite, Sortierung, Präfix ab 3 Zeichen), `POST /api/v1/users` (Einmalpasswort), `PUT /api/v1/users/{id}`, Passwort-Reset, `DELETE /api/v1/users/{id}`
 - Rollenkatalog nur für Rolle `admin`: `GET /api/v1/roles` (technischer Name, Labels und Beschreibung auf Deutsch und Englisch). Ohne Admin-Rolle antwortet die API mit 403; die Einstellungsseite zeigt einen Hinweis und leitet nicht zur Anmeldung um
+- Feldgruppen nur für Rolle `admin`: `GET/POST /api/v1/field-groups`, `GET/PUT/DELETE /api/v1/field-groups/{id}`. Mitgelieferte Gruppen (`system`, `attachment`, `retention`) werden beim Start ergänzt und lassen sich nicht ändern oder löschen
+- Dokumenttypen nur für Rolle `admin`: `GET/POST /api/v1/document-types`, `GET/PUT/DELETE /api/v1/document-types/{id}`. Jeder Typ enthält die Feldgruppe System. Export und Import als JSON (`/api/v1/document-types/export`, `/import/preview`, `/import`) übertragen Typen und abhängige Feldgruppen mit ID, ohne die Definitionen der Systemfeldgruppen. Gleiche ID oder ein schon vergebener technischer Name werden nur nach Nachfrage übernommen
 
-Noch nicht vorhanden (geplant): Settings-Masken Ablagen, Dokumenttypen und externe Systeme, Dokumentablage, Archiv-Volumes, Auditlog, Suche, feingranulares RBAC, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
+Noch nicht vorhanden (geplant): Settings-Masken Ablagen und externe Systeme, Aufbewahrung und Archivpflicht am Typ, Dokumentablage, Archiv-Volumes, Auditlog, Suche, feingranulares RBAC, Blob-Anzeige, optionale At-Rest-Verschlüsselung, SSO (Entra/Apple).
 
 ## Mitmachen
 

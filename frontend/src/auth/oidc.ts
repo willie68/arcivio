@@ -193,14 +193,15 @@ export type SettingsRole = {
 
 export type LocalizedText = { de: string; en: string };
 
-export const fieldValueTypes = ["bool", "int", "decimal", "double", "text", "multiline", "datetime"] as const;
+export const fieldValueTypes = ["bool", "int", "decimal", "double", "text", "multiline", "datetime", "intref", "file"] as const;
 export type FieldValueType = (typeof fieldValueTypes)[number];
 
 export type FieldDefinition = {
   name: string;
   labels: LocalizedText;
   description: LocalizedText;
-  valueType: FieldValueType;
+  valueType: string;
+  mandatory: boolean;
 };
 
 export type FieldGroup = {
@@ -208,6 +209,7 @@ export type FieldGroup = {
   name: string;
   labels: LocalizedText;
   description: LocalizedText;
+  readonly: boolean;
   fields: FieldDefinition[];
 };
 
@@ -217,6 +219,107 @@ export type FieldGroupInput = {
   description: LocalizedText;
   fields: FieldDefinition[];
 };
+
+export const systemFieldGroupId = "system";
+
+export type DocumentType = {
+  id: string;
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  fieldGroups: string[];
+};
+
+export type DocumentTypeInput = {
+  name: string;
+  labels: LocalizedText;
+  description: LocalizedText;
+  fieldGroups: string[];
+};
+
+export async function listDocumentTypes(): Promise<DocumentType[]> {
+  const data = await apiJson("/api/v1/document-types", { method: "GET" });
+  return (data.items ?? []) as DocumentType[];
+}
+
+export async function createDocumentType(input: DocumentTypeInput): Promise<DocumentType> {
+  return apiJson("/api/v1/document-types", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateDocumentType(id: string, input: DocumentTypeInput): Promise<DocumentType> {
+  return apiJson(`/api/v1/document-types/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteDocumentType(id: string): Promise<void> {
+  await apiJson(`/api/v1/document-types/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export type DocumentTypeExchange = {
+  documentTypes: Array<{
+    id: string;
+    name: string;
+    labels: LocalizedText;
+    description: LocalizedText;
+    fieldGroups: string[];
+  }>;
+  fieldGroups: Array<{
+    id: string;
+    name: string;
+    labels: LocalizedText;
+    description: LocalizedText;
+    fields: FieldDefinition[];
+  }>;
+};
+
+export type ImportChange = { field: string; before: string; after: string };
+
+export type ImportConflict = {
+  kind: "fieldGroup" | "documentType";
+  reason: "same-id" | "name";
+  id: string;
+  exists: boolean;
+  name: string;
+  existingId: string;
+  existingName: string;
+  suggestedName: string;
+  changes: ImportChange[];
+};
+
+export type ImportDecision = {
+  kind: string;
+  id: string;
+  action: "overwrite" | "rename" | "skip";
+  name?: string;
+};
+
+export async function exportDocumentTypes(): Promise<DocumentTypeExchange> {
+  const data = await apiJson("/api/v1/document-types/export", { method: "GET" });
+  return {
+    documentTypes: data.documentTypes ?? [],
+    fieldGroups: data.fieldGroups ?? [],
+  };
+}
+
+export async function previewDocumentTypeImport(body: DocumentTypeExchange): Promise<ImportConflict[]> {
+  const data = await apiJson("/api/v1/document-types/import/preview", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return (data.conflicts ?? []) as ImportConflict[];
+}
+
+export async function importDocumentTypes(
+  body: DocumentTypeExchange,
+  decisions: ImportDecision[] = [],
+): Promise<{ documentTypes: number; fieldGroups: number }> {
+  return apiJson("/api/v1/document-types/import", {
+    method: "POST",
+    body: JSON.stringify({ ...body, decisions }),
+  });
+}
 
 export async function listFieldGroups(): Promise<FieldGroup[]> {
   const data = await apiJson("/api/v1/field-groups", { method: "GET" });
