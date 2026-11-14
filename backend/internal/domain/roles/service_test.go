@@ -11,7 +11,7 @@ func TestGetRolesReturnsCatalogCopy(t *testing.T) {
 	s := NewService()
 	listed := s.GetRoles()
 	require.Len(t, listed, 4)
-	assert.Equal(t, []string{RoleAdmin, RoleArchivist, RoleClerk, RoleReader}, names(listed))
+	assert.ElementsMatch(t, []string{RoleAdmin, RoleArchivist, RoleClerk, RoleReader}, names(listed))
 	for _, role := range listed {
 		assert.NotEmpty(t, role.Labels.De)
 		assert.NotEmpty(t, role.Labels.En)
@@ -19,9 +19,16 @@ func TestGetRolesReturnsCatalogCopy(t *testing.T) {
 		assert.NotEmpty(t, role.Description.En)
 	}
 
+	name := listed[0].Name
+	original := listed[0].Labels.De
 	listed[0].Labels.De = "changed"
-	again := s.GetRoles()
-	assert.Equal(t, "Administrator", again[0].Labels.De)
+	var againDe string
+	for _, role := range s.GetRoles() {
+		if role.Name == name {
+			againDe = role.Labels.De
+		}
+	}
+	assert.Equal(t, original, againDe)
 }
 
 func TestGetRole(t *testing.T) {

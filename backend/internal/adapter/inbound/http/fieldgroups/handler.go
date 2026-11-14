@@ -207,6 +207,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401
 //	@Failure		403
 //	@Failure		404
+//	@Failure		409
 //	@Router			/field-groups/{id} [delete]
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(h.roles, w, r) {
@@ -269,6 +270,8 @@ func writeGroupError(w http.ResponseWriter, r *http.Request, err error) {
 		httputils.Err(w, r, serror.BadRequest(err, "invalid-field-group", "invalid field group"))
 	case errors.Is(err, fieldgroup.ErrReadonly):
 		httputils.Err(w, r, serror.New(http.StatusConflict, "readonly", "field group is read-only"))
+	case errors.Is(err, fieldgroup.ErrInUse):
+		httputils.Err(w, r, serror.New(http.StatusConflict, "in-use", "field group is used by a document type"))
 	default:
 		httputils.Err(w, r, err)
 	}
