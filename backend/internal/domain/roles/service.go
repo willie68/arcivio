@@ -1,5 +1,10 @@
 package roles
 
+import (
+	"maps"
+	"slices"
+)
+
 // Service is the built-in role catalog.
 type Service struct {
 	roles map[string]RoleDefinition
@@ -14,15 +19,9 @@ func NewService() *Service {
 	return &Service{roles: roles}
 }
 
-func (s *service) GetRoles() []RoleDefinition {
-	out := make([]RoleDefinition, len(s.roles))
-	i := 0
-	for _, role := range s.roles {
-		out[i] = role
-		i++
-	}
-}
-	return out
+func (s *Service) GetRoles() []RoleDefinition {
+	roles := slices.Collect(maps.Values(s.roles))
+	return roles
 }
 
 // GetRole returns the definition for name, or nil when the name is unknown.

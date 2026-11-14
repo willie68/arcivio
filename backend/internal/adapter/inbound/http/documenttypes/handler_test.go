@@ -211,11 +211,11 @@ type memGroups struct {
 	ids map[string]struct{}
 }
 
-func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.Group, error) {
+func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.FieldGroup, error) {
 	if _, ok := m.ids[id]; !ok {
 		return nil, fieldgroup.ErrNotFound
 	}
-	return &fieldgroup.Group{ID: id}, nil
+	return &fieldgroup.FieldGroup{ID: id}, nil
 }
 
 type memTypes struct {

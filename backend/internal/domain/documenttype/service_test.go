@@ -100,14 +100,14 @@ type memGroups struct {
 	failID string
 }
 
-func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.Group, error) {
+func (m *memGroups) GetByID(_ context.Context, id string) (*fieldgroup.FieldGroup, error) {
 	if id == m.failID {
 		return nil, errors.New("lookup failed")
 	}
 	if _, ok := m.ids[id]; !ok {
 		return nil, fieldgroup.ErrNotFound
 	}
-	return &fieldgroup.Group{ID: id, Name: id}, nil
+	return &fieldgroup.FieldGroup{ID: id, Name: id}, nil
 }
 
 type memStore struct {

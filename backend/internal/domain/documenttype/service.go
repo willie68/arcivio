@@ -14,7 +14,7 @@ const maxNameLen = 64
 
 // Groups looks up field group definitions.
 type Groups interface {
-	GetByID(ctx context.Context, id string) (*fieldgroup.Group, error)
+	GetByID(ctx context.Context, id string) (*fieldgroup.FieldGroup, error)
 }
 
 // Service is the document-type use case.

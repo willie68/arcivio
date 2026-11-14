@@ -12,12 +12,12 @@ import (
 )
 
 func TestValueTypesAndEmptyList(t *testing.T) {
-	assert.Equal(t, []string{"bool", "int", "decimal", "double", "text", "multiline", "datetime"}, ValueTypes())
+	assert.Equal(t, []string{"bool", "int", "decimal", "double", "text", "multiline", "datetime", "intref", "file"}, ValueTypes())
 	for _, valueType := range ValueTypes() {
 		assert.True(t, ValidValueType(valueType))
 	}
 
-	svc := New(&memStore{groups: map[string]Group{}, listNil: true})
+	svc := New(&memStore{groups: map[string]FieldGroup{}, listNil: true})
 	listed, err := svc.List(context.Background())
 	require.NoError(t, err)
 	assert.Empty(t, listed)

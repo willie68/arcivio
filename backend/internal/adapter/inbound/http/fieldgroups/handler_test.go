@@ -73,7 +73,7 @@ func TestCreateListAndDelete(t *testing.T) {
 }
 
 func TestGetUpdateAndInUse(t *testing.T) {
-	store := &memGroups{groups: map[string]fieldgroup.Group{}}
+	store := &memGroups{groups: map[string]fieldgroup.FieldGroup{}}
 	svc := fieldgroup.New(store)
 	svc.BindUsage(alwaysUsed{})
 	h := &Handler{groups: svc, roles: stubRoles{}}
@@ -121,7 +121,7 @@ func TestGroupErrorMapping(t *testing.T) {
 	h.Get(rec, adminJSON(http.MethodGet, "/api/v1/field-groups/x", nil, "x"))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 
-	store := &memGroups{groups: map[string]fieldgroup.Group{}}
+	store := &memGroups{groups: map[string]fieldgroup.FieldGroup{}}
 	h = &Handler{groups: fieldgroup.New(store), roles: stubRoles{}}
 	rec = httptest.NewRecorder()
 	h.Create(rec, adminJSON(http.MethodPost, "/api/v1/field-groups", []byte(`{"name":"beleg"}`), ""))
@@ -180,16 +180,16 @@ func (stubGroups) Delete(context.Context, string) error { return fieldgroup.ErrN
 
 type boomGroups struct{}
 
-func (boomGroups) List(context.Context) ([]fieldgroup.Group, error) {
+func (boomGroups) List(context.Context) ([]fieldgroup.FieldGroup, error) {
 	return nil, errors.New("db down")
 }
-func (boomGroups) Get(context.Context, string) (*fieldgroup.Group, error) {
+func (boomGroups) Get(context.Context, string) (*fieldgroup.FieldGroup, error) {
 	return nil, errors.New("db down")
 }
-func (boomGroups) Create(context.Context, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (boomGroups) Create(context.Context, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, errors.New("db down")
 }
-func (boomGroups) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.Group, error) {
+func (boomGroups) Update(context.Context, string, fieldgroup.Input) (*fieldgroup.FieldGroup, error) {
 	return nil, errors.New("db down")
 }
 func (boomGroups) Delete(context.Context, string) error { return errors.New("db down") }
